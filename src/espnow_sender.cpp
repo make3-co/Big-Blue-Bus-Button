@@ -17,6 +17,9 @@ bool EspNowSender::begin() {
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
 
+    // Set fixed WiFi channel for ESP-NOW
+    esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+
     // Enable modem sleep to save power between sends
     esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
 
@@ -30,7 +33,7 @@ bool EspNowSender::begin() {
     // Add receiver peer
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, RECEIVER_MAC, 6);
-    peerInfo.channel = 0;  // Use current channel
+    peerInfo.channel = ESPNOW_CHANNEL;
     peerInfo.encrypt = false;
 
     if (esp_now_add_peer(&peerInfo) != ESP_OK) {

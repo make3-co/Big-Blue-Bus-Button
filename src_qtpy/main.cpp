@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 #include <USB.h>
 #include <USBHIDKeyboard.h>
 #include "protocol.h"
@@ -48,6 +49,9 @@ void setup() {
     // Initialize WiFi + ESP-NOW
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
+
+    // Set fixed WiFi channel — must match sender's ESPNOW_CHANNEL
+    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
     if (esp_now_init() != ESP_OK) {
         Serial.println("ERROR: ESP-NOW init failed");
