@@ -111,7 +111,7 @@ static constexpr uint32_t ESPNOW_SEND_INTERVAL_MS = 5; // Delay between redundan
 static constexpr uint8_t ESPNOW_CHANNEL = 1;  // Both sender and receiver must match
 
 // QT Py receiver MAC address — UPDATE THIS after discovering receiver MAC
-static constexpr uint8_t RECEIVER_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast until configured
+static constexpr uint8_t RECEIVER_MAC[6] = {0xDC, 0x54, 0x75, 0xDD, 0x45, 0x74};
 
 // =============================================================================
 // OTA / WiFi

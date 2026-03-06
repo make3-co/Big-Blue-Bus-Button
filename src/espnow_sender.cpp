@@ -41,7 +41,8 @@ bool EspNowSender::begin() {
         return false;
     }
 
-    Serial.printf("ESP-NOW initialized, receiver MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    Serial.printf("Sender MAC: %s\n", WiFi.macAddress().c_str());
+    Serial.printf("Receiver MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
         RECEIVER_MAC[0], RECEIVER_MAC[1], RECEIVER_MAC[2],
         RECEIVER_MAC[3], RECEIVER_MAC[4], RECEIVER_MAC[5]);
     return true;

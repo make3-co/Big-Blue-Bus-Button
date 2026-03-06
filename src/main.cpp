@@ -25,6 +25,7 @@ enum class DeviceState : uint8_t {
 
 static DeviceState state = DeviceState::IDLE;
 static uint32_t stateStartTime = 0;
+static bool macPrinted = false;
 
 void changeState(DeviceState newState) {
     state = newState;
@@ -189,6 +190,12 @@ void setup() {
 // =============================================================================
 
 void loop() {
+    // Print MAC once after USB CDC has time to reconnect
+    if (!macPrinted && millis() > 5000) {
+        macPrinted = true;
+        Serial.printf("Sender MAC: %s\n", WiFi.macAddress().c_str());
+    }
+
     button.update();
     audioManager.update();
     animationManager.update();
