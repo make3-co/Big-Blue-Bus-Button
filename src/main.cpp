@@ -12,7 +12,8 @@
 // =============================================================================
 
 enum class DeviceState : uint8_t {
-    IDLE,        // Logos pulse white, waiting for button press
+    STARTUP,     // Sequential panel ramp-up
+    IDLE,        // Logos glow warm white, waiting for button press
     ANIMATING,   // Green/rainbow fill + sound + ESP-NOW send
     COOLDOWN,    // Resume pulse, ignore button input
 };
@@ -25,6 +26,12 @@ void changeState(DeviceState newState) {
     stateStartTime = millis();
 
     switch (newState) {
+        case DeviceState::STARTUP:
+            Serial.println("State: STARTUP");
+            ledManager.setBrightness(BRIGHTNESS_IDLE_MAX);
+            animationManager.startStartup();
+            break;
+
         case DeviceState::IDLE:
             Serial.println("State: IDLE");
             powerManager.enterIdleMode();
@@ -67,7 +74,7 @@ void setup() {
     espNowSender.begin();
     powerManager.begin();
 
-    changeState(DeviceState::IDLE);
+    changeState(DeviceState::STARTUP);
     Serial.println("Setup complete\n");
 }
 
@@ -82,6 +89,12 @@ void loop() {
     powerManager.update();
 
     switch (state) {
+        case DeviceState::STARTUP:
+            if (animationManager.isComplete()) {
+                changeState(DeviceState::IDLE);
+            }
+            break;
+
         case DeviceState::IDLE:
             if (button.wasPressed()) {
                 Serial.println("Button pressed!");

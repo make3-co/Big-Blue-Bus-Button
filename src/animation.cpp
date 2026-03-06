@@ -9,6 +9,9 @@ void AnimationManager::begin() {
 
 void AnimationManager::update() {
     switch (current) {
+        case AnimationType::STARTUP:
+            renderStartup();
+            break;
         case AnimationType::IDLE_GLOW:
             renderIdleGlow();
             break;
@@ -19,6 +22,12 @@ void AnimationManager::update() {
         default:
             break;
     }
+}
+
+void AnimationManager::startStartup() {
+    current = AnimationType::STARTUP;
+    startTime = millis();
+    complete = false;
 }
 
 void AnimationManager::startIdleGlow() {
@@ -36,6 +45,36 @@ void AnimationManager::startButtonPress() {
 void AnimationManager::stop() {
     current = AnimationType::NONE;
     complete = false;
+}
+
+// Sequential panel ramp-up to limit inrush current
+void AnimationManager::renderStartup() {
+    uint32_t elapsed = millis() - startTime;
+
+    if (elapsed >= STARTUP_RAMP_DURATION_MS) {
+        complete = true;
+        return;
+    }
+
+    float progress = (float)elapsed / (float)STARTUP_RAMP_DURATION_MS;
+    uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
+
+    ledManager.clear();
+
+    // Ramp panels sequentially: each panel fades in during its 1/4 of the duration
+    for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+        float panelStart = (float)p / (float)PANEL_COUNT;
+        float panelEnd   = (float)(p + 1) / (float)PANEL_COUNT;
+
+        if (progress < panelStart) continue;
+
+        float panelProgress = (progress - panelStart) / (panelEnd - panelStart);
+        if (panelProgress > 1.0f) panelProgress = 1.0f;
+
+        ledManager.setMaskedColorScaled(static_cast<PanelId>(p), color, panelProgress);
+    }
+
+    ledManager.show();
 }
 
 // Static warm white glow on masked pixels
