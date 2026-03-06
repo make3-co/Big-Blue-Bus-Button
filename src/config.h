@@ -71,12 +71,36 @@ static constexpr uint8_t BRIGHTNESS_ACTIVE    = 180;  // During button press ani
 static constexpr uint8_t BRIGHTNESS_MAX       = 255;  // Absolute max
 
 // =============================================================================
+// Colors
+// =============================================================================
+
+static constexpr uint8_t IDLE_COLOR_R = 255;
+static constexpr uint8_t IDLE_COLOR_G = 180;
+static constexpr uint8_t IDLE_COLOR_B = 80;
+
+// =============================================================================
+// Startup
+// =============================================================================
+
+static constexpr uint32_t STARTUP_RAMP_DURATION_MS = 1500;
+
+// =============================================================================
+// Battery Indicator
+// =============================================================================
+
+static constexpr PanelId  BATTERY_INDICATOR_PANEL = PANEL_SIDE_LEFT;  // Change to PANEL_SIDE_RIGHT if needed
+static constexpr uint16_t BATTERY_INDICATOR_OFFSET = 168;             // First LED after last lit side pixel
+static constexpr uint8_t  BATTERY_INDICATOR_COUNT  = 4;
+static constexpr uint32_t BATTERY_READ_INTERVAL_MS = 30000;           // 30 seconds
+static constexpr uint8_t  BATTERY_ADC_PIN = 35;                       // A13, Feather built-in voltage divider
+
+// =============================================================================
 // Timing
 // =============================================================================
 
-static constexpr uint32_t IDLE_PULSE_PERIOD_MS  = 3000;   // Full breath cycle
-static constexpr uint32_t ANIMATION_DURATION_MS = 2000;   // Button press animation length
-static constexpr uint32_t COOLDOWN_DURATION_MS  = 1000;   // Ignore button after animation
+static constexpr uint32_t IDLE_PULSE_PERIOD_MS  = 3000;   // Full breath cycle (legacy, kept for compatibility)
+static constexpr uint32_t ANIMATION_DURATION_MS = 1200;   // Button press animation (flash 200ms + fill 1000ms)
+static constexpr uint32_t COOLDOWN_DURATION_MS  = 500;    // Ignore button after animation
 static constexpr uint32_t BUTTON_DEBOUNCE_MS    = 50;     // Debounce time
 
 // =============================================================================
@@ -85,6 +109,24 @@ static constexpr uint32_t BUTTON_DEBOUNCE_MS    = 50;     // Debounce time
 
 static constexpr uint8_t ESPNOW_REDUNDANT_SENDS = 3;  // Send each message N times for reliability
 static constexpr uint32_t ESPNOW_SEND_INTERVAL_MS = 5; // Delay between redundant sends
+static constexpr uint8_t ESPNOW_CHANNEL = 1;  // Both sender and receiver must match
 
 // QT Py receiver MAC address — UPDATE THIS after discovering receiver MAC
 static constexpr uint8_t RECEIVER_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast until configured
+
+// =============================================================================
+// OTA / WiFi
+// =============================================================================
+
+static constexpr const char* FIRMWARE_VERSION    = "1.0.0";
+static constexpr const char* FIRMWARE_UPDATE_URL = "https://example.com/firmware.json";  // UPDATE THIS
+static constexpr const char* AP_SSID             = "BigBlueButton-Setup";
+static constexpr const char* AP_PASSWORD         = "";                                   // Open network
+static constexpr uint32_t   WIFI_CONNECT_TIMEOUT_MS = 15000;
+static constexpr uint32_t   OTA_CHECK_TIMEOUT_MS    = 30000;
+
+// =============================================================================
+// Boot Mode Detection
+// =============================================================================
+
+static constexpr uint32_t BOOT_BUTTON_HOLD_MS = 2000;  // Hold button this long during boot for OTA mode
