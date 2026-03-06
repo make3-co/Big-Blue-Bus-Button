@@ -1,11 +1,13 @@
 #include "wifi_manager.h"
 #include <WiFi.h>
 #include <WebServer.h>
+#include <DNSServer.h>
 #include <Preferences.h>
 
 WifiManager wifiManager;
 
 static WebServer server(80);
+static DNSServer dnsServer;
 static Preferences prefs;
 static String pendingSSID;
 static String pendingPass;
@@ -95,17 +97,28 @@ void WifiManager::startCaptivePortal() {
     WiFi.softAP(AP_SSID, AP_PASSWORD);
     Serial.printf("WiFi: AP started '%s', IP=%s\n", AP_SSID, WiFi.softAPIP().toString().c_str());
 
-    server.on("/", [options]() {
-        String html = FPSTR(PORTAL_HTML);
-        html.replace("%NETWORKS%", options);
-        server.send(200, "text/html", html);
-    });
+    // Redirect all DNS queries to our IP — triggers captive portal popup on iOS/Android/Windows
+    dnsServer.start(53, "*", WiFi.softAPIP());
 
-    server.onNotFound([options]() {
+    // Serve the portal page
+    auto servePage = [options]() {
         String html = FPSTR(PORTAL_HTML);
         html.replace("%NETWORKS%", options);
         server.send(200, "text/html", html);
-    });
+    };
+
+    server.on("/", servePage);
+
+    // Captive portal detection — serve portal page directly so OS opens the popup
+    // iOS/macOS probes /hotspot-detect.html — any non-"Success" response triggers CNA sheet
+    server.on("/hotspot-detect.html", servePage);
+    // Android probes these — non-204 response triggers portal
+    server.on("/generate_204", servePage);
+    server.on("/gen_204", servePage);
+    // Windows probes this
+    server.on("/connecttest.txt", servePage);
+
+    server.onNotFound(servePage);
 
     server.on("/save", HTTP_POST, []() {
         pendingSSID = server.arg("ssid");
@@ -120,6 +133,7 @@ void WifiManager::startCaptivePortal() {
 }
 
 void WifiManager::handlePortal() {
+    dnsServer.processNextRequest();
     server.handleClient();
 }
 
