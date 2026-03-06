@@ -148,14 +148,20 @@ void runOtaMode() {
 // =============================================================================
 
 void setup() {
-    Serial.begin(115200);
-    delay(500);
-    Serial.println("\n=== Big Blue Bus Button ===");
+    // Immediately kill LED data pins to prevent WS2812B from latching boot noise
+    static constexpr int8_t ledPins[] = {NEOPXL8_PIN_0, NEOPXL8_PIN_1, NEOPXL8_PIN_2, NEOPXL8_PIN_3};
+    for (auto pin : ledPins) {
+        if (pin >= 0) { pinMode(pin, OUTPUT); digitalWrite(pin, LOW); }
+    }
 
+    // Initialize LEDs ASAP — clear before anything else to kill boot noise
+    Serial.begin(115200);
     if (!ledManager.begin()) {
         Serial.println("FATAL: LED init failed, halting");
         while (true) { yield(); }
     }
+    delay(100);
+    Serial.println("\n=== Big Blue Bus Button ===");
 
     // Check for OTA mode BEFORE initializing other modules
     if (isOtaBootRequested()) {
@@ -169,6 +175,11 @@ void setup() {
     espNowSender.begin();
     powerManager.begin();
     batteryIndicator.begin();
+
+    // Re-clear LEDs after all module init (audio/WiFi DMA may have corrupted output)
+    ledManager.clear();
+    ledManager.show();
+    delay(5);
 
     changeState(DeviceState::STARTUP);
     Serial.println("Setup complete\n");

@@ -45,15 +45,15 @@ static constexpr uint8_t FRONT_PANEL_WIDTH  = 16;
 static constexpr uint8_t FRONT_PANEL_HEIGHT = 16;
 static constexpr uint16_t FRONT_PANEL_PIXELS = FRONT_PANEL_WIDTH * FRONT_PANEL_HEIGHT;  // 256
 
-// Side panels: 8x32
-static constexpr uint8_t SIDE_PANEL_WIDTH  = 8;
-static constexpr uint8_t SIDE_PANEL_HEIGHT = 32;
+// Side panels: 32 columns × 8 rows
+static constexpr uint8_t SIDE_PANEL_WIDTH  = 32;
+static constexpr uint8_t SIDE_PANEL_HEIGHT = 8;
 static constexpr uint16_t SIDE_PANEL_PIXELS = SIDE_PANEL_WIDTH * SIDE_PANEL_HEIGHT;  // 256
 
-// NeoPXL8 total buffer: 8 strands × 256 pixels each
+// NeoPXL8 total buffer: 8 strands × 260 pixels each (256 panel + 4 battery indicator)
 static constexpr uint8_t  NEOPXL8_STRANDS     = 8;
-static constexpr uint16_t PIXELS_PER_STRAND   = 256;
-static constexpr uint16_t TOTAL_PIXEL_BUFFER  = NEOPXL8_STRANDS * PIXELS_PER_STRAND;  // 2048
+static constexpr uint16_t PIXELS_PER_STRAND   = 260;
+static constexpr uint16_t TOTAL_PIXEL_BUFFER  = NEOPXL8_STRANDS * PIXELS_PER_STRAND;  // 2080
 
 // Strand offsets in the NeoPXL8 pixel buffer
 static constexpr uint16_t STRAND_OFFSET_FRONT_LEFT  = 0 * PIXELS_PER_STRAND;  // 0
@@ -89,7 +89,7 @@ static constexpr uint32_t STARTUP_RAMP_DURATION_MS = 1500;
 // =============================================================================
 
 static constexpr PanelId  BATTERY_INDICATOR_PANEL = PANEL_SIDE_LEFT;  // Change to PANEL_SIDE_RIGHT if needed
-static constexpr uint16_t BATTERY_INDICATOR_OFFSET = 168;             // First LED after last lit side pixel
+static constexpr uint16_t BATTERY_INDICATOR_OFFSET = 256;             // First LED after 256 panel pixels on strand
 static constexpr uint8_t  BATTERY_INDICATOR_COUNT  = 4;
 static constexpr uint32_t BATTERY_READ_INTERVAL_MS = 30000;           // 30 seconds
 static constexpr uint8_t  BATTERY_ADC_PIN = 35;                       // A13, Feather built-in voltage divider
