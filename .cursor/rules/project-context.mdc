@@ -1,0 +1,80 @@
+---
+description: Big Blue Bus Button – embedded project context and conventions
+alwaysApply: true
+---
+
+# Big Blue Bus Button – Project Context
+
+This is an **embedded firmware** project for a physical "Big Blue Bus" button device.
+
+## Stack
+
+- **Platform**: PlatformIO (`espressif32` 6.7.0, Arduino Core 2.0.16, GCC 8.4)
+- **Main Board**: Adafruit Feather ESP32-S3 (4MB Flash + 2MB PSRAM)
+- **Receiver Board**: Adafruit QT Py ESP32-S3 (no PSRAM) → USB HID spacebar
+- **Framework**: Arduino
+- **LEDs**: Adafruit NeoPXL8 (8-channel parallel DMA via ESP32-S3 LCD_CAM peripheral)
+- **Audio**: ESP32-audioI2S v3.0.12 (pinned — v3.1+ requires Arduino Core 3.x)
+- **Serial**: 115200 baud
+
+## LED Panel Configuration
+
+4 panels driven by NeoPXL8 on 4 strands:
+- **Strand 0** (GPIO 36): Front left 16x16
+- **Strand 1** (GPIO 5): Front right 16x16
+- **Strand 2** (GPIO 9): Side left 8x32
+- **Strand 3** (GPIO 6): Side right 8x32
+- Strands 4-7 (GPIO 13/12/11/10): unused but physically routed — do not use these GPIOs
+
+**Pixel mapping**: Column-major serpentine. Even columns top-to-bottom, odd columns bottom-to-top.
+`index = strandOffset + x * panelHeight + (x%2==0 ? y : panelHeight-1-y)`
+
+## Logo Masks
+
+Packed bitmask arrays in `led_manager.cpp` (32 bytes per panel). Bit order: `byte[y * (width/8) + x/8]`, bit `(7 - x%8)`.
+
+- **Front left**: 180 lit pixels (rows 2-13, cols 1-15) — orange/blue/green sections
+- **Front right**: 96 lit pixels (rows 2-13, col 0 + cols 1-7) — partial color + yellow
+- **Side left/right**: 168 lit pixels each (first 21 columns fully lit)
+- **Total logo LEDs**: 612
+
+Source data: `docs/Big Blue Button Front LED Mapping.xlsx`
+
+## Conventions
+
+- Keep firmware in `src/`; use `platformio.ini` for build and lib config.
+- Reference/planning files go in `docs/`.
+- **NeoPXL8:** Call `show()` only after staging all changes for a frame.
+- Prefer clear, readable C++ and avoid unnecessary heap use on the ESP32.
+- When adding libraries, declare them in `platformio.ini` under `lib_deps`.
+- Must add SAMD-only deps to `lib_ignore` when using NeoPXL8.
+
+## Coding Standards
+
+- **Asynchronous / non-blocking:** Use `millis()` for timing in `loop()`. Short `delay()` in `setup()` is acceptable; **NEVER** use `delay()` in `loop()`.
+- **Pin definitions:** All in `config.h` using `static constexpr`.
+- **Error handling:** Check return values of WiFi and peripheral operations.
+- **Serial debugging:** Use `Serial.printf()` for detailed logging.
+- **WDT safety:** Call `yield()` in long loops to avoid watchdog timer resets.
+
+## Code Style
+
+- Use camelCase for variables and functions, PascalCase for classes.
+- Prefer `const` and `constexpr` where applicable.
+- Keep ISRs short. Use `IRAM_ATTR` for ISR functions.
+- Use `Preferences.h` for NVS, not `EEPROM.h`.
+- Store credentials in gitignored files; never commit.
+
+## Build Notes
+
+- ESP32-audioI2S **must** be pinned to `#3.0.12` (GCC 8.4 lacks C++20 `<span>`)
+- NeoPXL8 SAMD deps excluded via `lib_ignore` in platformio.ini
+- QT Py: only add `-DARDUINO_USB_MODE=0`; do not redefine `ARDUINO_USB_CDC_ON_BOOT`
+
+## Useful Paths
+
+- `platformio.ini` – board, framework, libs
+- `src/main.cpp` – main firmware (state machine)
+- `src/config.h` – all pins, constants, panel geometry
+- `src/led_manager.cpp` – LED masks and panel mapping
+- `docs/` – reference spreadsheets, wiring diagrams, photos

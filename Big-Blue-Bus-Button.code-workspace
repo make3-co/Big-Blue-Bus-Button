@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../Arduino_Components/ESPNOW"
+		}
+	],
+	"settings": {}
+}

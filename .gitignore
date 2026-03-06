@@ -3,3 +3,13 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Credentials and secrets — never commit
+secrets.h
+credentials.h
+config_secret.h
+wifi_creds.h
+.env
+.env.*
+*.secret
+*.credentials
