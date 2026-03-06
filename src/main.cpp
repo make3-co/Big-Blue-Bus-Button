@@ -6,6 +6,7 @@
 #include "button_handler.h"
 #include "espnow_sender.h"
 #include "power_manager.h"
+#include "battery_indicator.h"
 
 // =============================================================================
 // State Machine
@@ -103,7 +104,7 @@ void loop() {
             break;
 
         case DeviceState::ANIMATING:
-            if (animationManager.isComplete()) {
+            if (animationManager.isComplete() && !audioManager.isPlaying()) {
                 changeState(DeviceState::COOLDOWN);
             }
             break;
