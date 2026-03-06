@@ -28,7 +28,7 @@ void changeState(DeviceState newState) {
         case DeviceState::IDLE:
             Serial.println("State: IDLE");
             powerManager.enterIdleMode();
-            animationManager.startIdlePulse();
+            animationManager.startIdleGlow();
             break;
 
         case DeviceState::ANIMATING:
@@ -42,7 +42,7 @@ void changeState(DeviceState newState) {
         case DeviceState::COOLDOWN:
             Serial.println("State: COOLDOWN");
             powerManager.enterIdleMode();
-            animationManager.startIdlePulse();
+            animationManager.startIdleGlow();
             break;
     }
 }

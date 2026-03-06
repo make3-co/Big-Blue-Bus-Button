@@ -98,7 +98,6 @@ static constexpr uint8_t  BATTERY_ADC_PIN = 35;                       // A13, Fe
 // Timing
 // =============================================================================
 
-static constexpr uint32_t IDLE_PULSE_PERIOD_MS  = 3000;   // Full breath cycle (legacy, kept for compatibility)
 static constexpr uint32_t ANIMATION_DURATION_MS = 1200;   // Button press animation (flash 200ms + fill 1000ms)
 static constexpr uint32_t COOLDOWN_DURATION_MS  = 500;    // Ignore button after animation
 static constexpr uint32_t BUTTON_DEBOUNCE_MS    = 50;     // Debounce time

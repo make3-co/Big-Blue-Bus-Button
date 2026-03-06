@@ -9,7 +9,7 @@
 
 enum class AnimationType : uint8_t {
     NONE,
-    IDLE_PULSE,       // Sinusoidal white breathing on masked pixels
+    IDLE_GLOW,        // Static warm white on masked pixels
     BUTTON_PRESS,     // Green/rainbow fill sweep
 };
 
@@ -18,7 +18,7 @@ public:
     void begin();
     void update();    // Call every loop iteration — renders current frame
 
-    void startIdlePulse();
+    void startIdleGlow();
     void startButtonPress();
     void stop();
 
@@ -30,7 +30,7 @@ private:
     uint32_t startTime = 0;
     bool complete = false;
 
-    void renderIdlePulse();
+    void renderIdleGlow();
     void renderButtonPress();
 };
 

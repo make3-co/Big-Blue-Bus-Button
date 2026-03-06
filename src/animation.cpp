@@ -1,6 +1,5 @@
 #include "animation.h"
 #include "led_manager.h"
-#include <math.h>
 
 AnimationManager animationManager;
 
@@ -10,8 +9,8 @@ void AnimationManager::begin() {
 
 void AnimationManager::update() {
     switch (current) {
-        case AnimationType::IDLE_PULSE:
-            renderIdlePulse();
+        case AnimationType::IDLE_GLOW:
+            renderIdleGlow();
             break;
         case AnimationType::BUTTON_PRESS:
             renderButtonPress();
@@ -22,8 +21,8 @@ void AnimationManager::update() {
     }
 }
 
-void AnimationManager::startIdlePulse() {
-    current = AnimationType::IDLE_PULSE;
+void AnimationManager::startIdleGlow() {
+    current = AnimationType::IDLE_GLOW;
     startTime = millis();
     complete = false;
 }
@@ -39,21 +38,12 @@ void AnimationManager::stop() {
     complete = false;
 }
 
-// Sinusoidal white breathing on masked pixels
-void AnimationManager::renderIdlePulse() {
-    uint32_t elapsed = millis() - startTime;
-    float phase = (float)(elapsed % IDLE_PULSE_PERIOD_MS) / (float)IDLE_PULSE_PERIOD_MS;
-    float sineVal = (sinf(phase * 2.0f * M_PI) + 1.0f) / 2.0f;  // 0.0 to 1.0
-
-    // Map sine to brightness range
-    float brightness = (float)BRIGHTNESS_IDLE_MIN / 255.0f +
-                       sineVal * ((float)(BRIGHTNESS_IDLE_MAX - BRIGHTNESS_IDLE_MIN) / 255.0f);
-
-    uint32_t white = Adafruit_NeoPixel::Color(255, 255, 255);
-
+// Static warm white glow on masked pixels
+void AnimationManager::renderIdleGlow() {
+    uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
     ledManager.clear();
     for (uint8_t p = 0; p < PANEL_COUNT; p++) {
-        ledManager.setMaskedColorScaled(static_cast<PanelId>(p), white, brightness);
+        ledManager.setMaskedColor(static_cast<PanelId>(p), color);
     }
     ledManager.show();
 }
