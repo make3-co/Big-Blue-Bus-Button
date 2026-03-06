@@ -87,7 +87,7 @@ void AnimationManager::renderIdleGlow() {
     ledManager.show();
 }
 
-// Green/rainbow fill sweep across all panels
+// Flash then bottom-to-top fill on masked pixels
 void AnimationManager::renderButtonPress() {
     uint32_t elapsed = millis() - startTime;
 
@@ -96,34 +96,38 @@ void AnimationManager::renderButtonPress() {
         return;
     }
 
-    float progress = (float)elapsed / (float)ANIMATION_DURATION_MS;  // 0.0 to 1.0
-
+    uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
     ledManager.clear();
+
+    // Phase 1: Flash (first 200ms) — all logo pixels full white
+    if (elapsed < 200) {
+        uint32_t white = Adafruit_NeoPixel::Color(255, 255, 255);
+        for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+            ledManager.setMaskedColor(static_cast<PanelId>(p), white);
+        }
+        ledManager.show();
+        return;
+    }
+
+    // Phase 2: Bottom-to-top fill (200ms to end)
+    float fillProgress = (float)(elapsed - 200) / (float)(ANIMATION_DURATION_MS - 200);
 
     for (uint8_t p = 0; p < PANEL_COUNT; p++) {
         PanelId panel = static_cast<PanelId>(p);
         uint8_t w = ledManager.getPanelWidth(panel);
         uint8_t h = ledManager.getPanelHeight(panel);
-
-        // Sweep columns left-to-right based on progress
-        uint8_t sweepCol = (uint8_t)(progress * w);
+        uint8_t fillRow = (uint8_t)(fillProgress * h);
 
         for (uint8_t x = 0; x < w; x++) {
             for (uint8_t y = 0; y < h; y++) {
                 if (!ledManager.isMasked(panel, x, y)) continue;
-
-                if (x <= sweepCol) {
-                    // Swept area: rainbow hue based on position + time
-                    uint16_t hue = (uint16_t)((float)x / (float)w * 65535.0f + elapsed * 20) % 65536;
-                    uint32_t color = Adafruit_NeoPixel::ColorHSV(hue, 255, 255);
+                // y=0 is top, y=h-1 is bottom. Fill from bottom up.
+                if (y >= (h - 1 - fillRow)) {
                     ledManager.setPixelXY(panel, x, y, color);
-                } else {
-                    // Ahead of sweep: green glow
-                    uint32_t green = Adafruit_NeoPixel::Color(0, 80, 0);
-                    ledManager.setPixelXY(panel, x, y, green);
                 }
             }
         }
     }
+
     ledManager.show();
 }
