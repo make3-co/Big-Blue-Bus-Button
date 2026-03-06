@@ -67,7 +67,7 @@ static constexpr uint16_t STRAND_OFFSET_SIDE_RIGHT  = 3 * PIXELS_PER_STRAND;  //
 
 static constexpr uint8_t BRIGHTNESS_IDLE_MIN  = 20;   // Pulse trough
 static constexpr uint8_t BRIGHTNESS_IDLE_MAX  = 60;   // Pulse peak (tune for outdoor visibility vs battery)
-static constexpr uint8_t BRIGHTNESS_ACTIVE    = 180;  // During button press animation
+static constexpr uint8_t BRIGHTNESS_ACTIVE    = 60;   // During button press animation (same as idle to stay under 6A)
 static constexpr uint8_t BRIGHTNESS_MAX       = 255;  // Absolute max
 
 // =============================================================================

@@ -47,7 +47,6 @@ void changeState(DeviceState newState) {
             Serial.println("State: ANIMATING");
             powerManager.enterActiveMode();
             animationManager.startButtonPress();
-            audioManager.play("press.wav");
             espNowSender.sendButtonPress();
             break;
 
@@ -193,6 +192,7 @@ void loop() {
     button.update();
     audioManager.update();
     animationManager.update();
+    audioManager.update();  // Extra audio pump after LED show() blocking call
     powerManager.update();
     batteryIndicator.update();
 
@@ -206,6 +206,7 @@ void loop() {
         case DeviceState::IDLE:
             if (button.wasPressed()) {
                 Serial.println("Button pressed!");
+                audioManager.play("press.wav");
                 changeState(DeviceState::ANIMATING);
             }
             break;

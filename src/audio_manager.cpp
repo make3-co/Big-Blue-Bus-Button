@@ -28,7 +28,12 @@ bool AudioManager::begin() {
 
 void AudioManager::update() {
     if (audio) {
-        audio->loop();
+        // Call loop() multiple times to keep I2S DMA buffer fed.
+        // NeoPXL8 show() blocks ~10ms per frame, so a single loop()
+        // call per main loop iteration isn't enough at 22050Hz.
+        for (int i = 0; i < 20; i++) {
+            audio->loop();
+        }
     }
 
     // Auto-shutdown amp when playback finishes
@@ -42,13 +47,20 @@ void AudioManager::update() {
 void AudioManager::play(const char* filename) {
     if (!audio) return;
 
+    Serial.printf("[%lu] ampOn\n", millis());
     ampOn();
-    delay(10);  // Brief delay for amp startup
+    delay(10);
 
-    // ESP32-audioI2S expects path without leading slash for LittleFS
+    Serial.printf("[%lu] connecttoFS\n", millis());
     audio->connecttoFS(LittleFS, filename);
     playing = true;
-    Serial.printf("Playing: %s\n", filename);
+
+    Serial.printf("[%lu] priming buffer\n", millis());
+    for (int i = 0; i < 20; i++) {
+        audio->loop();
+    }
+
+    Serial.printf("[%lu] play started: %s\n", millis(), filename);
 }
 
 bool AudioManager::isPlaying() const {

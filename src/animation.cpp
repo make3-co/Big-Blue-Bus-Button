@@ -144,11 +144,11 @@ void AnimationManager::renderButtonPress() {
     uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
     ledManager.clear();
 
-    // Phase 1: Flash (first 200ms) — all logo pixels full white
+    // Phase 1: Flash (first 200ms) — all logo pixels bright warm white
     if (elapsed < 200) {
-        uint32_t white = Adafruit_NeoPixel::Color(255, 255, 255);
+        uint32_t flash = Adafruit_NeoPixel::Color(255, 220, 140);
         for (uint8_t p = 0; p < PANEL_COUNT; p++) {
-            ledManager.setMaskedColor(static_cast<PanelId>(p), white);
+            ledManager.setMaskedColor(static_cast<PanelId>(p), flash);
         }
         ledManager.show();
         return;
