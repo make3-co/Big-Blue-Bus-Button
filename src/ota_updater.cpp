@@ -12,6 +12,7 @@ OtaResult OtaUpdater::checkAndUpdate() {
     http.setTimeout(OTA_CHECK_TIMEOUT_MS);
 
     http.begin(FIRMWARE_UPDATE_URL);
+    http.addHeader("Authorization", String("Bearer ") + OTA_API_KEY);
     int httpCode = http.GET();
 
     if (httpCode != 200) {
@@ -23,7 +24,7 @@ OtaResult OtaUpdater::checkAndUpdate() {
     String payload = http.getString();
     http.end();
 
-    // Parse JSON: { "version": "1.2.0", "url": "https://..." }
+    // Parse JSON: { "version": "1.2.0" }
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, payload);
     if (err) {
@@ -32,7 +33,11 @@ OtaResult OtaUpdater::checkAndUpdate() {
     }
 
     String remoteVersion = doc["version"].as<String>();
-    String firmwareUrl   = doc["url"].as<String>();
+
+    // Construct firmware URL from manifest URL base path
+    String baseUrl = String(FIRMWARE_UPDATE_URL);
+    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/'));
+    String firmwareUrl = baseUrl + "/v" + remoteVersion + "/firmware.bin";
 
     Serial.printf("OTA: current=%s remote=%s\n", FIRMWARE_VERSION, remoteVersion.c_str());
 
@@ -44,6 +49,7 @@ OtaResult OtaUpdater::checkAndUpdate() {
     Serial.printf("OTA: downloading %s\n", firmwareUrl.c_str());
 
     http.begin(firmwareUrl);
+    http.addHeader("Authorization", String("Bearer ") + OTA_API_KEY);
     httpCode = http.GET();
 
     if (httpCode != 200) {

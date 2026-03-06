@@ -118,7 +118,8 @@ static constexpr uint8_t RECEIVER_MAC[6] = {0xDC, 0x54, 0x75, 0xDD, 0x45, 0x74};
 // =============================================================================
 
 static constexpr const char* FIRMWARE_VERSION    = "1.0.0";
-static constexpr const char* FIRMWARE_UPDATE_URL = "https://example.com/firmware.json";  // UPDATE THIS
+static constexpr const char* FIRMWARE_UPDATE_URL = "https://ota-server.make3.workers.dev/big-blue-bus-button/manifest.json";
+static constexpr const char* OTA_API_KEY         = "eaae7d5da47277fbebd6e78c0f3c5093eede9b59277dd1ba27623cba1a718059";
 static constexpr const char* AP_SSID             = "BigBlueButton-Setup";
 static constexpr const char* AP_PASSWORD         = "";                                   // Open network
 static constexpr uint32_t   WIFI_CONNECT_TIMEOUT_MS = 15000;
