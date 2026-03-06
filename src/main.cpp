@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <math.h>
+#include <WiFi.h>
 #include "config.h"
 #include "led_manager.h"
 #include "animation.h"
@@ -7,6 +9,8 @@
 #include "espnow_sender.h"
 #include "power_manager.h"
 #include "battery_indicator.h"
+#include "wifi_manager.h"
+#include "ota_updater.h"
 
 // =============================================================================
 // State Machine
@@ -56,6 +60,90 @@ void changeState(DeviceState newState) {
 }
 
 // =============================================================================
+// OTA Boot Mode
+// =============================================================================
+
+// Check if button is held during boot for OTA mode
+bool isOtaBootRequested() {
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    delay(100);  // Let pullup settle
+
+    if (digitalRead(BUTTON_PIN) != LOW) return false;
+
+    Serial.println("Button held -- hold for OTA mode...");
+    uint32_t start = millis();
+    while ((millis() - start) < BOOT_BUTTON_HOLD_MS) {
+        if (digitalRead(BUTTON_PIN) != LOW) return false;
+        delay(50);
+        yield();
+    }
+
+    Serial.println("OTA mode confirmed");
+    return true;
+}
+
+void runOtaMode() {
+    Serial.println("\n=== OTA UPDATE MODE ===");
+
+    // Show blue LEDs so user knows they're in OTA mode
+    ledManager.clear();
+    uint32_t blue = Adafruit_NeoPixel::Color(0, 0, 80);
+    for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+        ledManager.setMaskedColor(static_cast<PanelId>(p), blue);
+    }
+    ledManager.show();
+
+    wifiManager.begin();
+
+    // Try saved credentials first
+    if (wifiManager.hasSavedCredentials()) {
+        if (wifiManager.connectToSaved()) {
+            OtaResult result = otaUpdater.checkAndUpdate();
+            if (result == OtaResult::UPDATE_SUCCESS) {
+                ESP.restart();
+            }
+            Serial.printf("OTA result: %d\n", (int)result);
+            wifiManager.disconnect();
+            return;
+        }
+    }
+
+    // No saved creds or connection failed -- start portal
+    wifiManager.startCaptivePortal();
+    Serial.println("Waiting for WiFi setup via portal...");
+
+    while (!wifiManager.portalDone()) {
+        wifiManager.handlePortal();
+
+        // Pulsing blue to indicate portal mode
+        uint32_t now = millis();
+        uint8_t wave = (uint8_t)((sinf((float)now / 1000.0f * 3.14159f) + 1.0f) * 40.0f);
+        uint32_t pulseBlue = Adafruit_NeoPixel::Color(0, 0, wave);
+        ledManager.clear();
+        for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+            ledManager.setMaskedColor(static_cast<PanelId>(p), pulseBlue);
+        }
+        ledManager.show();
+        yield();
+    }
+
+    // Portal done -- connect to the new network
+    delay(1000);  // Let the "Saved!" page load on the phone
+    WiFi.softAPdisconnect();
+
+    if (wifiManager.connectToSaved()) {
+        OtaResult result = otaUpdater.checkAndUpdate();
+        if (result == OtaResult::UPDATE_SUCCESS) {
+            ESP.restart();
+        }
+        Serial.printf("OTA result: %d\n", (int)result);
+    }
+
+    wifiManager.disconnect();
+    // Fall through to normal boot
+}
+
+// =============================================================================
 // Setup
 // =============================================================================
 
@@ -69,6 +157,12 @@ void setup() {
         while (true) { yield(); }
     }
 
+    // Check for OTA mode BEFORE initializing other modules
+    if (isOtaBootRequested()) {
+        runOtaMode();
+    }
+
+    // Normal boot -- initialize all modules
     button.begin();
     audioManager.begin();
     animationManager.begin();
