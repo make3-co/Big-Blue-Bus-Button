@@ -74,6 +74,7 @@ void setup() {
     animationManager.begin();
     espNowSender.begin();
     powerManager.begin();
+    batteryIndicator.begin();
 
     changeState(DeviceState::STARTUP);
     Serial.println("Setup complete\n");
@@ -88,6 +89,7 @@ void loop() {
     audioManager.update();
     animationManager.update();
     powerManager.update();
+    batteryIndicator.update();
 
     switch (state) {
         case DeviceState::STARTUP:
