@@ -82,8 +82,108 @@ bool isOtaBootRequested() {
     return true;
 }
 
+// Pulse all logo LEDs with a color N times (blocking)
+void otaPulse(uint32_t color, uint8_t times) {
+    for (uint8_t t = 0; t < times; t++) {
+        // Fade up
+        for (int b = 0; b <= 80; b += 4) {
+            float scale = (float)b / 80.0f;
+            uint8_t r = ((color >> 16) & 0xFF) * scale;
+            uint8_t g = ((color >> 8) & 0xFF) * scale;
+            uint8_t bl = (color & 0xFF) * scale;
+            uint32_t c = Adafruit_NeoPixel::Color(r, g, bl);
+            ledManager.clear();
+            for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+                ledManager.setMaskedColor(static_cast<PanelId>(p), c);
+            }
+            ledManager.show();
+            delay(10);
+        }
+        // Fade down
+        for (int b = 80; b >= 0; b -= 4) {
+            float scale = (float)b / 80.0f;
+            uint8_t r = ((color >> 16) & 0xFF) * scale;
+            uint8_t g = ((color >> 8) & 0xFF) * scale;
+            uint8_t bl = (color & 0xFF) * scale;
+            uint32_t c = Adafruit_NeoPixel::Color(r, g, bl);
+            ledManager.clear();
+            for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+                ledManager.setMaskedColor(static_cast<PanelId>(p), c);
+            }
+            ledManager.show();
+            delay(10);
+        }
+        delay(100);  // Gap between pulses
+    }
+}
+
+// Rainbow sweep across all logo LEDs (blocking, ~2 seconds)
+void otaRainbow() {
+    for (uint16_t frame = 0; frame < 512; frame++) {
+        ledManager.clear();
+        for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+            PanelId panel = static_cast<PanelId>(p);
+            uint8_t w = ledManager.getPanelWidth(panel);
+            uint8_t h = ledManager.getPanelHeight(panel);
+            for (uint8_t x = 0; x < w; x++) {
+                for (uint8_t y = 0; y < h; y++) {
+                    if (!ledManager.isMasked(panel, x, y)) continue;
+                    uint16_t hue = (frame * 128 + (x + y) * 1024) % 65536;
+                    uint32_t c = Adafruit_NeoPixel::ColorHSV(hue, 255, 80);
+                    ledManager.setPixelXY(panel, x, y, c);
+                }
+            }
+        }
+        ledManager.show();
+        delay(4);
+        yield();
+    }
+}
+
+// Show OTA result with LED feedback
+void otaShowResult(OtaResult result) {
+    switch (result) {
+        case OtaResult::NO_UPDATE:
+            Serial.println("OTA: no update available");
+            otaPulse(Adafruit_NeoPixel::Color(255, 180, 0), 2);  // Yellow x2
+            break;
+        case OtaResult::UPDATE_SUCCESS:
+            Serial.println("OTA: update successful!");
+            otaRainbow();
+            // Try to play chime after rainbow
+            if (audioManager.begin()) {
+                audioManager.play("chime.wav");
+                while (audioManager.isPlaying()) {
+                    audioManager.update();
+                    delay(10);
+                }
+            }
+            delay(500);
+            ESP.restart();
+            break;
+        case OtaResult::UPDATE_FAILED:
+        case OtaResult::NETWORK_ERROR:
+            Serial.printf("OTA: error (result=%d)\n", (int)result);
+            otaPulse(Adafruit_NeoPixel::Color(255, 0, 0), 3);  // Red x3
+            break;
+    }
+}
+
+// Pulsing green while downloading
+void otaPulseGreenFrame() {
+    uint32_t now = millis();
+    uint8_t wave = (uint8_t)((sinf((float)now / 500.0f * 3.14159f) + 1.0f) * 40.0f);
+    uint32_t green = Adafruit_NeoPixel::Color(0, wave, 0);
+    ledManager.clear();
+    for (uint8_t p = 0; p < PANEL_COUNT; p++) {
+        ledManager.setMaskedColor(static_cast<PanelId>(p), green);
+    }
+    ledManager.show();
+}
+
 void runOtaMode() {
     Serial.println("\n=== OTA UPDATE MODE ===");
+    Serial.printf("Current firmware: v%s\n", FIRMWARE_VERSION);
 
     // Show blue LEDs so user knows they're in OTA mode
     ledManager.clear();
@@ -98,11 +198,13 @@ void runOtaMode() {
     // Try saved credentials first
     if (wifiManager.hasSavedCredentials()) {
         if (wifiManager.connectToSaved()) {
+            // Pulse green while checking/downloading
+            otaPulseGreenFrame();
+            Serial.println("OTA: calling checkAndUpdate...");
             OtaResult result = otaUpdater.checkAndUpdate();
-            if (result == OtaResult::UPDATE_SUCCESS) {
-                ESP.restart();
-            }
-            Serial.printf("OTA result: %d\n", (int)result);
+            Serial.printf("OTA: result=%d, showing feedback...\n", (int)result);
+            otaShowResult(result);
+            Serial.println("OTA: feedback done, disconnecting...");
             wifiManager.disconnect();
             return;
         }
@@ -132,11 +234,9 @@ void runOtaMode() {
     WiFi.softAPdisconnect();
 
     if (wifiManager.connectToSaved()) {
+        otaPulseGreenFrame();
         OtaResult result = otaUpdater.checkAndUpdate();
-        if (result == OtaResult::UPDATE_SUCCESS) {
-            ESP.restart();
-        }
-        Serial.printf("OTA result: %d\n", (int)result);
+        otaShowResult(result);
     }
 
     wifiManager.disconnect();
@@ -161,7 +261,7 @@ void setup() {
         while (true) { yield(); }
     }
     delay(100);
-    Serial.println("\n=== Big Blue Bus Button ===");
+    Serial.printf("\n=== Big Blue Bus Button v%s ===\n", FIRMWARE_VERSION);
 
     // Check for OTA mode BEFORE initializing other modules
     if (isOtaBootRequested()) {

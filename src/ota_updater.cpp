@@ -2,6 +2,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include <ArduinoJson.h>
+#include <esp_task_wdt.h>
 
 OtaUpdater otaUpdater;
 
@@ -71,9 +72,32 @@ OtaResult OtaUpdater::checkAndUpdate() {
         return OtaResult::UPDATE_FAILED;
     }
 
+    Serial.printf("OTA: content length=%d, writing to flash...\n", contentLength);
+
     WiFiClient* stream = http.getStreamPtr();
-    size_t written = Update.writeStream(*stream);
+
+    // Manual chunked read+write with yield() to prevent WDT reset
+    uint8_t buf[1024];
+    size_t written = 0;
+    while (written < (size_t)contentLength) {
+        size_t toRead = min((size_t)sizeof(buf), (size_t)contentLength - written);
+        int bytesRead = stream->readBytes(buf, toRead);
+        if (bytesRead <= 0) {
+            Serial.printf("OTA: read failed at %d/%d\n", written, contentLength);
+            break;
+        }
+        size_t bytesWritten = Update.write(buf, bytesRead);
+        if (bytesWritten != (size_t)bytesRead) {
+            Serial.printf("OTA: write failed at %d/%d\n", written, contentLength);
+            break;
+        }
+        written += bytesWritten;
+        yield();
+    }
+
+    Serial.printf("OTA: write done, wrote %d bytes\n", written);
     http.end();
+    Serial.println("OTA: http closed");
 
     if (written != (size_t)contentLength) {
         Serial.printf("OTA: wrote %d of %d bytes\n", written, contentLength);
@@ -81,12 +105,14 @@ OtaResult OtaUpdater::checkAndUpdate() {
         return OtaResult::UPDATE_FAILED;
     }
 
+    Serial.println("OTA: calling Update.end()...");
     if (!Update.end(true)) {
         Serial.printf("OTA: update finalize failed: %s\n", Update.errorString());
         return OtaResult::UPDATE_FAILED;
     }
 
-    Serial.println("OTA: update successful, rebooting...");
+    Serial.println("OTA: Update.end() complete, returning SUCCESS");
+    Serial.flush();
     return OtaResult::UPDATE_SUCCESS;
 }
 
