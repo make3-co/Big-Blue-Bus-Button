@@ -47,76 +47,47 @@ void AnimationManager::stop() {
     complete = false;
 }
 
-// Startup: front panels fade by logo section, side panels fade together
-// Sections: Orange (rows 2-5), Blue (rows 6-9), Green (rows 10-13), Yellow (right cols 1-7 rows 2-13)
-// Side panels fade in during the first section slot
+// Startup: staggered panel wake-up to limit inrush current.
+// Each panel gets its own time slot to fade in, so the boost converter
+// never has to supply current for more than one panel ramping simultaneously.
+// Order: side-left → side-right → front-left → front-right
+// Global brightness also ramps from 0 to BRIGHTNESS_IDLE_MAX during startup.
 
-static constexpr uint8_t NUM_SECTIONS = 4;
-
-// Check which section a front panel pixel belongs to (0-3), or -1 if none
-static int8_t getFrontSection(PanelId panel, uint8_t x, uint8_t y) {
-    if (panel == PANEL_FRONT_LEFT) {
-        if (y >= 2 && y <= 5 && x >= 1)  return 0;  // Orange
-        if (y >= 6 && y <= 9 && x >= 1)  return 1;  // Blue
-        if (y >= 10 && y <= 13 && x >= 1) return 2;  // Green
-    } else if (panel == PANEL_FRONT_RIGHT) {
-        // Yellow: cols 1-7, rows 2-13 (section 3)
-        if (y >= 2 && y <= 13 && x >= 1 && x <= 7) return 3;
-        // Orange/Blue/Green: col 0 only
-        if (x == 0 && y >= 2 && y <= 5)   return 0;
-        if (x == 0 && y >= 6 && y <= 9)   return 1;
-        if (x == 0 && y >= 10 && y <= 13) return 2;
-    }
-    return -1;
-}
+static constexpr uint8_t STARTUP_PANEL_ORDER[PANEL_COUNT] = {
+    PANEL_SIDE_LEFT, PANEL_SIDE_RIGHT, PANEL_FRONT_LEFT, PANEL_FRONT_RIGHT
+};
 
 void AnimationManager::renderStartup() {
     uint32_t elapsed = millis() - startTime;
 
     if (elapsed >= STARTUP_RAMP_DURATION_MS) {
+        ledManager.setBrightness(BRIGHTNESS_IDLE_MAX);
         complete = true;
         return;
     }
 
     float progress = (float)elapsed / (float)STARTUP_RAMP_DURATION_MS;
+
+    // Ramp global brightness from 0 to target over the full startup duration
+    uint8_t globalBright = (uint8_t)(progress * BRIGHTNESS_IDLE_MAX);
+    ledManager.setBrightness(globalBright);
+
     uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
+    float slotDuration = 1.0f / (float)PANEL_COUNT;
 
     ledManager.clear();
 
-    // Side panels: fade in during first section slot (0 to 1/NUM_SECTIONS)
-    for (uint8_t p = PANEL_SIDE_LEFT; p <= PANEL_SIDE_RIGHT; p++) {
-        float sideEnd = 1.0f / (float)NUM_SECTIONS;
-        float sideBright = (progress < sideEnd) ? (progress / sideEnd) : 1.0f;
-        ledManager.setMaskedColorScaled(static_cast<PanelId>(p), color, sideBright);
-    }
+    for (uint8_t i = 0; i < PANEL_COUNT; i++) {
+        PanelId panel = static_cast<PanelId>(STARTUP_PANEL_ORDER[i]);
+        float slotStart = (float)i * slotDuration;
+        float slotEnd   = slotStart + slotDuration;
 
-    // Front panels: fade by section
-    for (uint8_t p = PANEL_FRONT_LEFT; p <= PANEL_FRONT_RIGHT; p++) {
-        PanelId panel = static_cast<PanelId>(p);
-        uint8_t w = ledManager.getPanelWidth(panel);
-        uint8_t h = ledManager.getPanelHeight(panel);
+        if (progress < slotStart) continue;  // This panel hasn't started yet
 
-        for (uint8_t x = 0; x < w; x++) {
-            for (uint8_t y = 0; y < h; y++) {
-                if (!ledManager.isMasked(panel, x, y)) continue;
+        float panelBright = (progress - slotStart) / (slotEnd - slotStart);
+        if (panelBright > 1.0f) panelBright = 1.0f;
 
-                int8_t section = getFrontSection(panel, x, y);
-                if (section < 0) continue;
-
-                float secStart = (float)section / (float)NUM_SECTIONS;
-                float secEnd   = (float)(section + 1) / (float)NUM_SECTIONS;
-
-                if (progress < secStart) continue;
-
-                float secBright = (progress - secStart) / (secEnd - secStart);
-                if (secBright > 1.0f) secBright = 1.0f;
-
-                uint8_t r = IDLE_COLOR_R * secBright;
-                uint8_t g = IDLE_COLOR_G * secBright;
-                uint8_t b = IDLE_COLOR_B * secBright;
-                ledManager.setPixelXY(panel, x, y, Adafruit_NeoPixel::Color(r, g, b));
-            }
-        }
+        ledManager.setMaskedColorScaled(panel, color, panelBright);
     }
 
     ledManager.show();
