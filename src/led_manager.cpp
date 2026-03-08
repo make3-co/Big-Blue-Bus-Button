@@ -59,16 +59,9 @@ bool LedManager::begin() {
         Serial.println("ERROR: NeoPXL8 init failed");
         return false;
     }
-
-    // Start at brightness 0 and send multiple clears to kill any boot noise
-    // that WS2812B may have latched from GPIO state during ESP32 startup.
-    // This prevents inrush current from crashing the boost converter.
-    strip->setBrightness(0);
+    strip->setBrightness(BRIGHTNESS_IDLE_MAX);
     strip->clear();
     strip->show();
-    delay(2);   // WS2812B needs ~300us latch time; give extra margin
-    strip->show();  // Second clear for reliability
-    delay(10);  // Let power supply stabilize with all LEDs confirmed off
 
     setPanelMask(PANEL_FRONT_LEFT,  FRONT_LEFT_MASK);
     setPanelMask(PANEL_FRONT_RIGHT, FRONT_RIGHT_MASK);

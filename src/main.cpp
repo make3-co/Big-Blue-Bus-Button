@@ -34,7 +34,7 @@ void changeState(DeviceState newState) {
     switch (newState) {
         case DeviceState::STARTUP:
             Serial.println("State: STARTUP");
-            ledManager.setBrightness(0);  // Animation ramps brightness gradually
+            ledManager.setBrightness(BRIGHTNESS_IDLE_MAX);
             animationManager.startStartup();
             break;
 
