@@ -168,6 +168,18 @@ void LedManager::setMaskedColor(PanelId panel, uint32_t color) {
     }
 }
 
+void LedManager::setMaskedColorCheckerboard(PanelId panel, uint32_t color) {
+    uint8_t w = panelWidth(panel);
+    uint8_t h = panelHeight(panel);
+    for (uint8_t x = 0; x < w; x++) {
+        for (uint8_t y = 0; y < h; y++) {
+            if (isMasked(panel, x, y) && ((x + y) % 2 == 0)) {
+                setPixelXY(panel, x, y, color);
+            }
+        }
+    }
+}
+
 void LedManager::setMaskedColorScaled(PanelId panel, uint32_t color, float brightness) {
     if (brightness < 0.0f) brightness = 0.0f;
     if (brightness > 1.0f) brightness = 1.0f;

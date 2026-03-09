@@ -3,33 +3,51 @@
 ## Power Distribution
 
 ```
-  USB-C
+  USB-C (5V)
     │
     ▼
-┌──────────────────┐         ┌───────────────────────┐
-│ Adafruit BQ24074 │         │     LiPo 3.7V          │
-│ LiPo Charger     │────────►│     Battery             │
-│ (up to 1.5A)     │ CHARGE  └───────┬───────┬─────────┘
-└──────────────────┘                 │       │
-                                     │       │
-                       ┌─────────────┘       └──────────────┐
-                       ▼                                     ▼
-             ┌──────────────────┐                  ┌─────────────────┐
-             │ Feather ESP32-S3 │                  │ TPS61088 Boost  │
-             │   (JST input)    │                  │ 3.7V → 5V, 10A  │
-             │ Regulates to 3V3 │                  └────────┬────────┘
-             └────────┬─────────┘                           │ 5V
-                      │ 3V3                     ┌───────────┼───────────┐
-                      ▼                         ▼           ▼           ▼
-             ┌─────────────────┐          ┌──────────┐ ┌──────────┐   ...
-             │  MAX98357A Amp  │          │ LED Panel│ │ LED Panel│  (all 4)
-             │  (VIN from 3V3) │          │  5V + GND│ │  5V + GND│
-             └─────────────────┘          └──────────┘ └──────────┘
+┌──────────────┐
+│   IP2312     │
+│ 5V 3A Fast   │
+│ Charger      │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────────────────┐
+│  8x Molicel 21700 P42A (parallel)        │
+│  33,600mAh (33.6Ah), 3.7V nominal       │
+│  360A max discharge, spot-welded         │
+└──────────────────┬───────────────────────┘
+                   │
+                   ▼
+          ┌────────────────┐
+          │ HXYP-1S-6033   │
+          │ BMS (30A)      │
+          └───────┬────────┘
+                  │
+                  ▼
+           ┌────────────┐
+           │  25A Fuse   │
+           └──────┬─────┘
+                  │
+      ┌───────────┼──────────────┬──────────────┐
+      ▼           ▼              ▼              ▼
+┌───────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Feather   │ │TPS61088  │ │TPS61088  │ │TPS61088  │
+│ ESP32-S3  │ │#1 → 5V   │ │#2 → 5V   │ │#3 → 5V   │
+│ (BAT pin) │ │Front L+R │ │Side Left │ │Side Right│
+└─────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
+      │ 3V3        │ 5V         │ 5V         │ 5V
+      ▼            ▼            ▼            ▼
+┌───────────┐ ┌─────────┐ ┌────────┐ ┌─────────┐
+│MAX98357A  │ │Front L. │ │Side L. │ │Side R.  │
+│I2S Amp    │ │Front R. │ │ 8x32   │ │ 8x32   │
+└───────────┘ └─────────┘ └────────┘ └─────────┘
 ```
 
-USB-C plugs into the BQ24074, which charges the LiPo at up to 1.5A. The LiPo connects to **both** the Feather JST input (for MCU/amp power) and the TPS61088 boost converter input (for LED power). WS2812B LEDs require 5V — the boost converter steps 3.7V up to 5V and can supply up to 10A. The system can run while charging.
+8x Molicel P42A 21700 cells in parallel provide 33.6Ah at 3.7V with 360A max discharge. The BMS provides overcharge, overdischarge, overcurrent, and short protection at 30A. A 25A fuse provides additional safety. The IP2312 charges the pack at 3A from USB-C (~11 hours from empty). The system can run while charging.
 
-**LED power budget:** 1024 LEDs x 60mA max = 61A at full white. At `BRIGHTNESS_ACTIVE = 180` (~70%), peak draw is ~43A. At `BRIGHTNESS_IDLE_MAX = 60` (~24%), idle draw is ~15A. Actual draw depends on color/pattern — logo masks reduce lit pixels significantly.
+**LED power budget:** 612 logo LEDs × 60mA max = ~37A at full white. At `BRIGHTNESS_ACTIVE = 60` (~24%), measured draw is ~4.6A at 5V. At 3.7V input, total input current is ~7A across all three TPS61088s. Well within the BMS 30A and fuse 25A limits.
 
 ## Feather ESP32-S3 Pin Connections
 
@@ -47,41 +65,47 @@ USB-C plugs into the BQ24074, which charges the LiPo at up to 1.5A. The LiPo con
      (unused) ·····┤  GPIO 11 (D11)    GND            ├──► MAX98357A GND
      (unused) ·····┤  GPIO 10 (D10)    USB-C          │
                     │                                    │
-                    │         WiFi / ESP-NOW  ─ ─ ─ ─ ─ ─ ─ ─ ► QT Py
-                    │         JST Battery ◄── LiPo 3.7V │
+                    │         WiFi / ESP-NOW  ─ ─ ─ ─ ─ ─ ─ ─ ► Receiver
+                    │         BAT pin ◄── BMS → Fuse │
                     └──────────────────────────────────┘
 ```
 
 ## Signal Flow
 
 ```
-              USB-C
+              USB-C (5V)
                 │
            ┌────┴─────┐
-           │ BQ24074  │        LiPo 3.7V
-           │ Charger  ├──────►(battery)
-           └──────────┘        │      │
-                               │      └─────────────────────────┐
-                               ▼                                 ▼
-┌────────┐ GPIO 15 ┌─────────────┐  ESP-NOW  ┌──────────┐  ┌───────────┐
-│ Button ├────────►│   Feather   ├─ ─ ─ ─ ─►│  QT Py   │  │ TPS61088  │
-└────────┘         │  ESP32-S3   │ (wireless)│ ESP32-S3 │  │ 3.7V → 5V │
-                   └──┬──────┬───┘           └─────┬────┘  └─────┬─────┘
-                      │      │                     │          5V  │
-          GPIO 36/5/9/6    GPIO 18/17/16/14        │              │
-                      │      │                USB HID      ┌──────┴──────┐
-                      ▼      ▼                     │       │  5V + GND   │
-                ┌─────────┐ ┌───────────┐    ┌─────┴──┐   │  to all 4   │
-                │NeoPXL8  │ │ MAX98357A │───►│Speaker │   │  LED panels │
-                │FeatherWg│ │  I2S Amp  │    └────────┘   └──────┬──────┘
-                └────┬────┘ └───────────┘                        │
-                     │ data                                      │ power
-          ┌──────────┼──────────┬──────────┐   ┌────────────────┘
-          ▼          ▼          ▼          ▼   ▼
-     ┌─────────┐┌─────────┐┌────────┐┌─────────┐
-     │Front L. ││Front R. ││Side L. ││Side R.  │
-     │ 16x16   ││ 16x16   ││ 8x32   ││ 8x32   │
-     └─────────┘└─────────┘└────────┘└─────────┘
+           │  IP2312   │     8x Molicel P42A
+           │ Charger   ├───►(21700 parallel)
+           └──────────┘        │
+                          ┌────┴────┐
+                          │  BMS    │
+                          │  30A    │
+                          └────┬────┘
+                          ┌────┴────┐
+                          │ 25A Fuse│
+                          └────┬────┘
+                    ┌──────────┼──────────────┬──────────────┐
+                    ▼          ▼              ▼              ▼
+┌────────┐  ┌─────────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
+│ Button ├─►│   Feather   │ │ TPS61088  │ │ TPS61088  │ │ TPS61088  │
+└────────┘  │  ESP32-S3   │ │ #1 → 5V   │ │ #2 → 5V   │ │ #3 → 5V   │
+            └──┬──────┬───┘ └─────┬─────┘ └─────┬─────┘ └─────┬─────┘
+               │      │          │              │              │
+   GPIO 36/5/9/6  GPIO 18/17/16/14             │              │
+               │      │          │              │              │
+               ▼      ▼          ▼              ▼              ▼
+         ┌─────────┐ ┌───────┐ ┌─────────┐ ┌────────┐ ┌─────────┐
+         │NeoPXL8  │ │MAX amp│ │Front L. │ │Side L. │ │Side R.  │
+         │FeatherWg│ │►Spkr  │ │Front R. │ │ 8x32   │ │ 8x32   │
+         └────┬────┘ └───────┘ │ 16x16   │ └────────┘ └─────────┘
+              │ data           └─────────┘
+   ┌──────────┼──────────┬──────────┐
+   ▼          ▼          ▼          ▼
+ Front L.  Front R.  Side L.   Side R.
+
+Feather ─ ─ ESP-NOW ─ ─ ► Receiver ──USB──► PC (spacebar HID)
 ```
 
 ## NeoPXL8 FeatherWing → LED Panels
@@ -117,29 +141,45 @@ Each LED panel needs **3 connections**:
 - **5V** — from TPS61088 boost converter (separate power wire)
 - **GND** — striped wire from Ethernet + common ground to 5V supply
 
-## Adafruit BQ24074 LiPo Charger
+## IP2312 Fast Charger
 
 | Pin | Connection |
 |-----|------------|
-| USB | USB-C power input (5V) |
-| VBAT | LiPo battery +/- |
-| CE | Tie LOW (charge enable) or connect to GPIO for charge control |
-| EN1/EN2 | Set charge rate (both HIGH = 1.5A, EN1 HIGH + EN2 LOW = 500mA) |
-| PG | Power good output (optional — monitor via GPIO) |
-| STAT1/STAT2 | Charge status LEDs (optional) |
+| USB-C | 5V power input |
+| BAT+ | Battery pack positive (through BMS) |
+| BAT- | Battery pack negative (through BMS) |
 
-Charges the LiPo from USB-C at up to 1.5A. The BQ24074 handles charge management independently — the Feather's built-in charger is bypassed since we're feeding the battery directly from the BQ24074.
+Charges the 21700 pack at up to 3A from USB-C. Full charge from empty: ~11 hours. The Feather's built-in charger is bypassed since battery power goes directly to the BAT pin.
 
-## TPS61088 Boost Converter (LED Power)
+## HXYP-1S-6033 BMS (30A)
 
 | Pin | Connection |
 |-----|------------|
-| VIN | LiPo 3.7V (direct from battery) |
+| B+ / B- | Battery pack positive / negative |
+| P+ / P- | Load output positive / negative (to 25A fuse) |
+
+Provides overcharge (4.25V), overdischarge (2.5V), overcurrent (30A), and short circuit protection for the 21700 pack.
+
+## TPS61088 Boost Converters (LED Power)
+
+Three TPS61088 boost converters, each set to **5V** output. All powered from BMS output through 25A fuse. Connect all GND to common ground.
+
+| Converter | VIN | VOUT | Panels |
+|-----------|-----|------|--------|
+| TPS61088 #1 | BMS → Fuse | 5V | Front Left + Front Right (panels 0 & 1) |
+| TPS61088 #2 | BMS → Fuse | 5V | Side Left (panel 2) |
+| TPS61088 #3 | BMS → Fuse | 5V | Side Right (panel 3) |
+
+Each converter pin connections:
+
+| Pin | Connection |
+|-----|------------|
+| VIN | BMS output (through 25A fuse) |
 | GND | Common ground (shared with Feather) |
-| VOUT | 5V to all LED panel VIN |
+| VOUT | 5V to assigned LED panel(s) |
 | EN | Tie HIGH (always on) or connect to Feather GPIO for power control |
 
-Set output to **5V**. Max 10A continuous. Connect GND to Feather GND to ensure common ground reference for data signals.
+Max 10A continuous per converter. Splitting panels across converters reduces per-converter current draw and improves stability at low battery voltage.
 
 ## MAX98357A I2S Amp
 
@@ -149,10 +189,11 @@ Set output to **5V**. Max 10A continuous. Connect GND to Feather GND to ensure c
 | LRC     | A1          | 17   |
 | DIN     | A2          | 16   |
 | SD      | A4          | 14   |
+| GAIN    | GND         | —    |
 | VIN     | 3V3         | —    |
 | GND     | GND         | —    |
 
-SD pin controls amp shutdown: HIGH = on, LOW = off. Speaker connects to amp output terminals.
+SD pin controls amp shutdown: HIGH = on, LOW = off. GAIN tied to GND for maximum 15dB gain (floating = 9dB, VIN = 12dB). Speaker connects to amp output terminals.
 
 ## Button
 
@@ -175,9 +216,25 @@ QT Py connects to PC via USB-C. Receiver MAC in `config.h` currently set to broa
 
 | Rail | Source | Supplies | Notes |
 |------|--------|----------|-------|
-| 5V USB | USB-C | BQ24074 charger input | Charging only |
-| 3.7V | LiPo battery | Feather JST, TPS61088 VIN | Raw battery voltage |
+| 5V USB | USB-C | IP2312 charger input | Charging only (3A) |
+| 3.7V | 21700 pack → BMS → Fuse | Feather BAT, TPS61088 VIN (×3) | Raw battery voltage (3.0–4.2V) |
 | 3.3V | Feather regulator | ESP32-S3, MAX98357A, NeoPXL8 logic | ~500mA max from Feather |
-| 5V | TPS61088 boost | All 4 LED panels (WS2812B VIN) | Up to 10A, set VOUT=5V |
+| 5V | TPS61088 boost (×3) | LED panels (split across 3 converters) | Up to 10A each, set VOUT=5V |
 
-**Common ground** — All GND connections (Feather, BQ24074, TPS61088, LED panels, MAX98357A) must share a common ground.
+**Common ground** — All GND connections (Feather, IP2312, BMS, TPS61088s, LED panels, MAX98357A) must share a common ground.
+
+## Battery Pack
+
+| Spec | Value |
+|------|-------|
+| Cells | 8× Molicel 21700 P42A |
+| Configuration | 1S8P (all parallel) |
+| Capacity | 33,600mAh (33.6Ah) |
+| Nominal voltage | 3.7V |
+| Max voltage | 4.2V |
+| Min voltage | 3.0V (BMS cutoff ~2.5V) |
+| Max continuous discharge | 360A (45A per cell) |
+| Assembly | Spot-welded nickel strips |
+| Protection | HXYP-1S-6033 BMS (30A) + 25A fuse |
+| Charging | IP2312 at 3A via USB-C |
+| Estimated runtime | ~4.8 hours at idle (brightness 60, ~7A total draw) |

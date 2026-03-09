@@ -36,6 +36,9 @@ public:
     // Fill only masked (logo) pixels on a panel
     void setMaskedColor(PanelId panel, uint32_t color);
 
+    // Fill only masked (logo) pixels in a checkerboard pattern (every other pixel)
+    void setMaskedColorCheckerboard(PanelId panel, uint32_t color);
+
     // Fill masked pixels with per-pixel brightness scaling (0.0–1.0)
     void setMaskedColorScaled(PanelId panel, uint32_t color, float brightness);
 

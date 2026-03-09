@@ -83,11 +83,24 @@ void AnimationManager::renderStartup() {
 
     ledManager.clear();
 
-    // Side panels: fade in during first section slot (0 to 1/NUM_SECTIONS)
+    // Side panels: fade in during first section slot (0 to 1/NUM_SECTIONS) — checkerboard
     for (uint8_t p = PANEL_SIDE_LEFT; p <= PANEL_SIDE_RIGHT; p++) {
+        PanelId sPanel = static_cast<PanelId>(p);
         float sideEnd = 1.0f / (float)NUM_SECTIONS;
         float sideBright = (progress < sideEnd) ? (progress / sideEnd) : 1.0f;
-        ledManager.setMaskedColorScaled(static_cast<PanelId>(p), color, sideBright);
+        uint8_t w = ledManager.getPanelWidth(sPanel);
+        uint8_t h = ledManager.getPanelHeight(sPanel);
+        uint8_t r = IDLE_COLOR_R * sideBright;
+        uint8_t g = IDLE_COLOR_G * sideBright;
+        uint8_t b = IDLE_COLOR_B * sideBright;
+        uint32_t scaled = Adafruit_NeoPixel::Color(r, g, b);
+        for (uint8_t x = 0; x < w; x++) {
+            for (uint8_t y = 0; y < h; y++) {
+                if (ledManager.isMasked(sPanel, x, y) && (x + y) % 2 == 0) {
+                    ledManager.setPixelXY(sPanel, x, y, scaled);
+                }
+            }
+        }
     }
 
     // Front panels: fade by section
@@ -99,6 +112,7 @@ void AnimationManager::renderStartup() {
         for (uint8_t x = 0; x < w; x++) {
             for (uint8_t y = 0; y < h; y++) {
                 if (!ledManager.isMasked(panel, x, y)) continue;
+                if ((x + y) % 2 != 0) continue;  // Checkerboard
 
                 int8_t section = getFrontSection(panel, x, y);
                 if (section < 0) continue;
@@ -127,7 +141,7 @@ void AnimationManager::renderIdleGlow() {
     uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
     ledManager.clear();
     for (uint8_t p = 0; p < PANEL_COUNT; p++) {
-        ledManager.setMaskedColor(static_cast<PanelId>(p), color);
+        ledManager.setMaskedColorCheckerboard(static_cast<PanelId>(p), color);
     }
     ledManager.show();
 }
@@ -144,11 +158,11 @@ void AnimationManager::renderButtonPress() {
     uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
     ledManager.clear();
 
-    // Phase 1: Flash (first 200ms) — all logo pixels bright warm white
+    // Phase 1: Flash (first 200ms) — checkerboard bright warm white
     if (elapsed < 200) {
         uint32_t flash = Adafruit_NeoPixel::Color(255, 220, 140);
         for (uint8_t p = 0; p < PANEL_COUNT; p++) {
-            ledManager.setMaskedColor(static_cast<PanelId>(p), flash);
+            ledManager.setMaskedColorCheckerboard(static_cast<PanelId>(p), flash);
         }
         ledManager.show();
         return;
@@ -166,6 +180,7 @@ void AnimationManager::renderButtonPress() {
         for (uint8_t x = 0; x < w; x++) {
             for (uint8_t y = 0; y < h; y++) {
                 if (!ledManager.isMasked(panel, x, y)) continue;
+                if ((x + y) % 2 != 0) continue;  // Checkerboard
                 // y=0 is top, y=h-1 is bottom. Fill from bottom up.
                 if (y >= (h - 1 - fillRow)) {
                     ledManager.setPixelXY(panel, x, y, color);

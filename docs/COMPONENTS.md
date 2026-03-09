@@ -6,27 +6,34 @@
 |---|-----------|----------|------|
 | 1 | Adafruit Feather ESP32-S3 (4MB Flash + 2MB PSRAM) | 1 | Main MCU |
 | 2 | Adafruit NeoPXL8 FeatherWing | 1 | 8-channel parallel LED driver (stacked on Feather) |
-| 3 | Adafruit QT Py ESP32-S3 (no PSRAM) | 1 | Wireless receiver → USB HID spacebar |
-| 4 | Adafruit BQ24074 LiPo Charger | 1 | Charges battery from USB-C at up to 1.5A |
-| 5 | TPS61088 Boost Converter (JESSINIE) | 3 | Boost 3.7V → 5V for LED power (10A each) |
-| 6 | MAX98357A I2S Amplifier | 1 | Audio output from ESP32 |
-| 7 | Speaker | 1 | Sound output |
-| 8 | WS2812B LED Panel 16x16 | 2 | Front left + front right displays |
-| 9 | WS2812B LED Panel 8x32 | 2 | Side left + side right displays |
-| 10 | Momentary Push Button | 1 | Trigger input (NO, wired to GND) |
-| 11 | LiPo Battery 3.7V | 1 | Main power source |
-| 12 | Flat Ethernet Cable (AWM E212689) | 1 | Data + GND from NeoPXL8 to LED panels |
+| 3 | Adafruit Feather ESP32-S3 (receiver) | 1 | Wireless receiver → USB HID spacebar |
+| 4 | IP2312 5V 3A Lithium Battery Charging Board | 1 | Fast charges battery pack from USB-C at 3A |
+| 5 | HXYP-1S-6033 3.7V 30A BMS | 1 | Battery management (overcharge/overdischarge/overcurrent/short) |
+| 6 | TPS61088 Boost Converter (JESSINIE) | 3 | Boost 3.7V → 5V for LED power (10A each) |
+| 7 | MAX98357A I2S Amplifier | 1 | Audio output from ESP32 |
+| 8 | Speaker | 1 | Sound output |
+| 9 | WS2812B LED Panel 16x16 | 2 | Front left + front right displays |
+| 10 | WS2812B LED Panel 8x32 | 2 | Side left + side right displays |
+| 11 | Momentary Push Button | 1 | Trigger input (NO, wired to GND) |
+| 12 | Molicel 21700 P42A 4200mAh 45A | 8 | Battery pack (1S8P, 33.6Ah, spot-welded) |
+| 13 | 25A Fuse | 1 | Overcurrent protection between BMS and loads |
+| 14 | Flat Ethernet Cable (AWM E212689) | 1 | Data + GND from NeoPXL8 to LED panels |
 
 ## Wiring Summary
 
 ### Power Chain
 
 ```
-USB-C ──► BQ24074 ──► LiPo Battery ──┬──► Feather JST (regulates to 3.3V)
-                                      ├──► TPS61088 #1 (5V) ──► Front Left + Front Right
-                                      └──► TPS61088 #2 (5V) ──► Side Left + Side Right
-
-TPS61088 #3 ── spare
+USB-C ──► IP2312 (3A) ──► 8x Molicel P42A (1S8P, 33.6Ah)
+                                    │
+                              BMS (30A)
+                                    │
+                              25A Fuse
+                                    │
+                    ┌───────────────┼───────────────┬──────────────┐
+                    ▼               ▼               ▼              ▼
+              Feather BAT    TPS61088 #1      TPS61088 #2    TPS61088 #3
+            (regulates 3.3V)  (5V) Front L+R   (5V) Side L    (5V) Side R
 ```
 
 ### Feather ESP32-S3 Pinout
@@ -78,6 +85,7 @@ Ethernet striped wire ──┬──► GND
 | LRC | Feather A1 | 17 |
 | DIN | Feather A2 | 16 |
 | SD | Feather A4 | 14 |
+| GAIN | GND (15dB) | — |
 | VIN | Feather 3V3 | — |
 | GND | Feather GND | — |
 
@@ -110,8 +118,9 @@ Keep brightness low in firmware during bench testing — 6A limit on the supply.
 
 All GND connections must be tied together:
 - Feather GND
-- BQ24074 GND
-- TPS61088 GND (all converters)
+- IP2312 GND
+- BMS GND
+- TPS61088 GND (all 3 converters)
 - LED panel GND (all 4 panels)
 - MAX98357A GND
 - Ethernet cable GND wires
