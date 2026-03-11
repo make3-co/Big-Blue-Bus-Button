@@ -313,8 +313,8 @@ void loop() {
         case DeviceState::IDLE:
             if (button.wasPressed()) {
                 Serial.println("Button pressed!");
-                audioManager.play("press.wav");
                 changeState(DeviceState::ANIMATING);
+                audioManager.play("press.wav");
             }
             break;
 

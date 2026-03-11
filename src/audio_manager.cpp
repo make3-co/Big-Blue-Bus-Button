@@ -28,15 +28,15 @@ bool AudioManager::begin() {
     return true;
 }
 
-void AudioManager::update() {
-    if (audio) {
-        // Call loop() multiple times to keep I2S DMA buffer fed.
-        // NeoPXL8 show() blocks ~10ms per frame, so a single loop()
-        // call per main loop iteration isn't enough at 22050Hz.
-        for (int i = 0; i < 20; i++) {
-            audio->loop();
-        }
+void AudioManager::pumpAudio() {
+    if (!audio) return;
+    for (int i = 0; i < 20; i++) {
+        audio->loop();
     }
+}
+
+void AudioManager::update() {
+    pumpAudio();
 
     // Update volume from pot
     updateVolume();
@@ -54,14 +54,15 @@ void AudioManager::play(const char* filename) {
 
     Serial.printf("[%lu] ampOn\n", millis());
     ampOn();
-    delay(10);
+    delay(20);  // MAX98357A needs time to wake from shutdown
 
     Serial.printf("[%lu] connecttoFS\n", millis());
     audio->connecttoFS(LittleFS, filename);
     playing = true;
 
+    // Aggressively prime the I2S DMA buffer so audio starts immediately
     Serial.printf("[%lu] priming buffer\n", millis());
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 100; i++) {
         audio->loop();
     }
 

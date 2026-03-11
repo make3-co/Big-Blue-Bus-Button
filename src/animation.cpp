@@ -1,5 +1,6 @@
 #include "animation.h"
 #include "led_manager.h"
+#include "audio_manager.h"
 
 AnimationManager animationManager;
 
@@ -134,6 +135,7 @@ void AnimationManager::renderStartup() {
     }
 
     ledManager.show();
+    audioManager.pumpAudio();  // Feed I2S buffer after show() blocks ~10ms
 }
 
 // Static warm white glow on masked pixels
@@ -144,6 +146,7 @@ void AnimationManager::renderIdleGlow() {
         ledManager.setMaskedColorCheckerboard(static_cast<PanelId>(p), color);
     }
     ledManager.show();
+    audioManager.pumpAudio();  // Feed I2S buffer after show() blocks ~10ms
 }
 
 // Flash then bottom-to-top fill on masked pixels
@@ -165,6 +168,7 @@ void AnimationManager::renderButtonPress() {
             ledManager.setMaskedColorCheckerboard(static_cast<PanelId>(p), flash);
         }
         ledManager.show();
+        audioManager.pumpAudio();  // Feed I2S buffer after show() blocks ~10ms
         return;
     }
 
@@ -190,4 +194,5 @@ void AnimationManager::renderButtonPress() {
     }
 
     ledManager.show();
+    audioManager.pumpAudio();  // Feed I2S buffer after show() blocks ~10ms
 }

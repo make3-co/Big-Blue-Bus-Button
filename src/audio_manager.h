@@ -10,7 +10,8 @@
 class AudioManager {
 public:
     bool begin();
-    void update();                       // Call every loop iteration (feeds I2S buffer)
+    void update();                       // Call every loop iteration (feeds I2S buffer + checks completion)
+    void pumpAudio();                    // Feed I2S buffer only — safe to call during animation show()
     void play(const char* filename);     // Play a WAV file from LittleFS
     bool isPlaying() const;
     void stop();

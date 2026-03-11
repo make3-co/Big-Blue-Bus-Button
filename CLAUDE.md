@@ -190,8 +190,8 @@ The Feather ESP32-S3 ships with TinyUF2 bootloader at address 0x2d0000 which cau
 ### Receiver MAC address not yet configured
 `config.h` has `RECEIVER_MAC` set to broadcast (`FF:FF:FF:FF:FF:FF`). After flashing the QT Py, its MAC address is printed to serial on boot. Update `RECEIVER_MAC` in `config.h` with the actual address for unicast delivery.
 
-### No WAV file in data/ yet
-The `data/` directory exists but is empty. Place `press.wav` there and upload with `pio run -e feather_esp32s3 -t uploadfs` before testing audio.
+### WAV files must be 16-bit mono 22050Hz
+WAV files in `data/` must be **16-bit PCM, mono, 22050Hz**. Higher sample rates (e.g., 44100Hz) cause the I2S DMA buffer to drain during NeoPXL8 `show()` blocking calls (~10ms), resulting in audio only being audible after the LED animation completes instead of playing simultaneously. Convert with: `ffmpeg -i input.wav -ar 22050 -ac 1 -sample_fmt s16 output.wav`
 
 ## Resource Usage (as of initial build)
 
