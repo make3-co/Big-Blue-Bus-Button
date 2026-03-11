@@ -107,8 +107,8 @@ static constexpr uint16_t FUEL_GAUGE_BATTERY_MAH = 4200;             // APA pack
 // Timing
 // =============================================================================
 
-static constexpr uint32_t ANIMATION_DURATION_MS = 1200;   // Button press animation (flash 200ms + fill 1000ms)
-static constexpr uint32_t COOLDOWN_DURATION_MS  = 500;    // Ignore button after animation
+static constexpr uint32_t ANIMATION_DURATION_MS = 1000;   // Button press animation (bottom-to-top fill)
+static constexpr uint32_t COOLDOWN_DURATION_MS  = 200;    // Ignore button after animation
 static constexpr uint32_t BUTTON_DEBOUNCE_MS    = 50;     // Debounce time
 
 // =============================================================================
@@ -126,7 +126,7 @@ static constexpr uint8_t RECEIVER_MAC[6] = {0xDC, 0x54, 0x75, 0xDD, 0x45, 0x74};
 // OTA / WiFi
 // =============================================================================
 
-static constexpr const char* FIRMWARE_VERSION    = "1.0.8";
+static constexpr const char* FIRMWARE_VERSION    = "1.0.9";
 static constexpr const char* FIRMWARE_UPDATE_URL = "https://ota-server.make3.workers.dev/big-blue-bus-button/manifest.json";
 static constexpr const char* OTA_API_KEY         = "eaae7d5da47277fbebd6e78c0f3c5093eede9b59277dd1ba27623cba1a718059";
 static constexpr const char* AP_SSID             = "BigBlueButton-Setup";

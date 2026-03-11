@@ -149,7 +149,7 @@ void AnimationManager::renderIdleGlow() {
     audioManager.pumpAudio();  // Feed I2S buffer after show() blocks ~10ms
 }
 
-// Flash then bottom-to-top fill on masked pixels
+// Bottom-to-top fill on masked pixels
 void AnimationManager::renderButtonPress() {
     uint32_t elapsed = millis() - startTime;
 
@@ -161,19 +161,8 @@ void AnimationManager::renderButtonPress() {
     uint32_t color = Adafruit_NeoPixel::Color(IDLE_COLOR_R, IDLE_COLOR_G, IDLE_COLOR_B);
     ledManager.clear();
 
-    // Phase 1: Flash (first 200ms) — checkerboard bright warm white
-    if (elapsed < 200) {
-        uint32_t flash = Adafruit_NeoPixel::Color(255, 220, 140);
-        for (uint8_t p = 0; p < PANEL_COUNT; p++) {
-            ledManager.setMaskedColorCheckerboard(static_cast<PanelId>(p), flash);
-        }
-        ledManager.show();
-        audioManager.pumpAudio();  // Feed I2S buffer after show() blocks ~10ms
-        return;
-    }
-
-    // Phase 2: Bottom-to-top fill (200ms to end)
-    float fillProgress = (float)(elapsed - 200) / (float)(ANIMATION_DURATION_MS - 200);
+    // Bottom-to-top fill
+    float fillProgress = (float)elapsed / (float)ANIMATION_DURATION_MS;
 
     for (uint8_t p = 0; p < PANEL_COUNT; p++) {
         PanelId panel = static_cast<PanelId>(p);
