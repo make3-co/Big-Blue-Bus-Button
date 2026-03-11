@@ -1,26 +1,68 @@
 #include "battery_indicator.h"
 #include "led_manager.h"
+#include <Adafruit_LC709203F.h>
 
 BatteryIndicator batteryIndicator;
 
 void BatteryIndicator::begin() {
-    analogReadResolution(12);
-    lastPercent = percentFromVoltage(readVoltage());
+    // VBUS charger detection pin
+    pinMode(VBUS_DETECT_PIN, INPUT);
+
+    fuelGauge = new Adafruit_LC709203F();
+
+    if (fuelGauge->begin()) {
+        fuelGauge->setPackSize(LC709203F_APA_3000MAH);  // Closest available APA for our cells
+        fuelGauge->setAlarmVoltage(3.2f);
+        fuelGaugeOk = true;
+        Serial.println("LC709203F fuel gauge found");
+    } else {
+        delete fuelGauge;
+        fuelGauge = nullptr;
+        fuelGaugeOk = false;
+        Serial.println("LC709203F not found — falling back to ADC");
+        analogReadResolution(12);
+    }
+
+    // Initial reading
+    charging = digitalRead(VBUS_DETECT_PIN) == HIGH;
+    if (fuelGaugeOk) {
+        lastVoltage = fuelGauge->cellVoltage();
+        lastPercent = (uint8_t)constrain(fuelGauge->cellPercent(), 0.0f, 100.0f);
+    } else {
+        lastVoltage = readVoltageADC();
+        lastPercent = percentFromVoltage(lastVoltage);
+    }
     render(lastPercent);
-    Serial.printf("Battery: %.2fV (%d%%)\n", readVoltage(), lastPercent);
+    Serial.printf("Battery: %.2fV (%d%%) %s [%s]\n", lastVoltage, lastPercent,
+                  charging ? "CHARGING" : "", fuelGaugeOk ? "LC709203F" : "ADC");
 }
 
 void BatteryIndicator::update() {
     if (millis() - lastReadTime < BATTERY_READ_INTERVAL_MS) return;
     lastReadTime = millis();
 
-    float voltage = readVoltage();
-    lastPercent = percentFromVoltage(voltage);
+    charging = digitalRead(VBUS_DETECT_PIN) == HIGH;
+    if (fuelGaugeOk) {
+        lastVoltage = fuelGauge->cellVoltage();
+        lastPercent = (uint8_t)constrain(fuelGauge->cellPercent(), 0.0f, 100.0f);
+    } else {
+        lastVoltage = readVoltageADC();
+        lastPercent = percentFromVoltage(lastVoltage);
+    }
     render(lastPercent);
-    Serial.printf("Battery: %.2fV (%d%%)\n", voltage, lastPercent);
+    Serial.printf("Battery: %.2fV (%d%%) %s [%s]\n", lastVoltage, lastPercent,
+                  charging ? "CHARGING" : "", fuelGaugeOk ? "LC709203F" : "ADC");
 }
 
-float BatteryIndicator::readVoltage() {
+float BatteryIndicator::getVoltage() {
+    return lastVoltage;
+}
+
+uint8_t BatteryIndicator::getPercent() {
+    return lastPercent;
+}
+
+float BatteryIndicator::readVoltageADC() {
     // Feather ESP32-S3 has a voltage divider on A13 (GPIO 35)
     // ADC reads 0-4095 for 0-3.3V, actual battery voltage is 2x the reading
     uint32_t raw = 0;

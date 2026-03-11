@@ -16,9 +16,12 @@ public:
     void stop();
     void ampOn();
     void ampOff();
+    void updateVolume();                 // Read pot and set volume
 
 private:
     bool playing = false;
+    uint8_t lastVolume = 21;
+    uint32_t lastVolumeReadTime = 0;
 };
 
 extern AudioManager audioManager;

@@ -17,15 +17,21 @@ static constexpr int8_t NEOPXL8_PIN_6 = -1;  // Unused
 static constexpr int8_t NEOPXL8_PIN_7 = -1;  // Unused
 
 // I2S audio output to MAX98357A
-static constexpr uint8_t I2S_BCLK_PIN = 18;  // A0 — Bit clock
-static constexpr uint8_t I2S_LRC_PIN  = 17;  // A1 — Word select (LRCLK)
+static constexpr uint8_t I2S_BCLK_PIN = 15;  // A3 — Bit clock
+static constexpr uint8_t I2S_LRC_PIN  = 14;  // A4 — Word select (LRCLK)
 static constexpr uint8_t I2S_DOUT_PIN = 16;  // A2 — Data out
 
 // Amplifier shutdown control
-static constexpr uint8_t AMP_SHUTDOWN_PIN = 14;  // A4 — HIGH=on, LOW=off
+static constexpr uint8_t AMP_SHUTDOWN_PIN = 18;  // A0 — HIGH=on, LOW=off
 
-// Button input
-static constexpr uint8_t BUTTON_PIN = 15;  // A3 — INPUT_PULLUP, wire to GND
+// Volume control potentiometer
+static constexpr uint8_t VOLUME_POT_PIN = 8;   // A5 — ADC input from pot wiper (JST #1)
+
+// Button input (NeoPXL8 FeatherWing pin cut)
+static constexpr uint8_t BUTTON_PIN = 10;  // D10 — INPUT_PULLUP, wire to GND (JST #2)
+
+// VBUS charger detection (5V via 100K/100K divider, NeoPXL8 FeatherWing pin cut)
+static constexpr uint8_t VBUS_DETECT_PIN = 11;  // D11 — HIGH when charger connected (JST #2)
 
 // =============================================================================
 // Panel Geometry
@@ -92,7 +98,10 @@ static constexpr PanelId  BATTERY_INDICATOR_PANEL = PANEL_SIDE_LEFT;  // Change 
 static constexpr uint16_t BATTERY_INDICATOR_OFFSET = 256;             // First LED after 256 panel pixels on strand
 static constexpr uint8_t  BATTERY_INDICATOR_COUNT  = 4;
 static constexpr uint32_t BATTERY_READ_INTERVAL_MS = 30000;           // 30 seconds
-static constexpr uint8_t  BATTERY_ADC_PIN = 35;                       // A13, Feather built-in voltage divider
+static constexpr uint8_t  BATTERY_ADC_PIN = 8;                        // A5, Feather built-in voltage divider (fallback if no LC709203F)
+
+// LC709203F Fuel Gauge (I2C via STEMMA QT)
+static constexpr uint16_t FUEL_GAUGE_BATTERY_MAH = 4200;             // APA pack size (mAh) — closest match for LC709203F lookup table
 
 // =============================================================================
 // Timing
