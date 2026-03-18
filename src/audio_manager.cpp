@@ -107,6 +107,6 @@ void AudioManager::updateVolume() {
     if (vol != lastVolume) {
         lastVolume = vol;
         audio->setVolume(vol);
-        Serial.printf("Volume: %d/21\n", vol);
+        // Serial.printf("Volume: %d/21\n", vol);
     }
 }

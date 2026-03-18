@@ -33,6 +33,12 @@ void IRAM_ATTR onDataRecv(const uint8_t* mac, const uint8_t* data, int len) {
     if (msg->command == CommandType::BUTTON_PRESS) {
         lastSeqNum = msg->sequenceNum;
         sendKey = true;
+    } else if (msg->command == CommandType::BATTERY_STATUS) {
+        lastSeqNum = msg->sequenceNum;
+        if (msg->percent == 255)
+            Serial.printf("Battery: %.2fV (NO FUEL GAUGE)\n", msg->voltage_mv / 1000.0f);
+        else
+            Serial.printf("Battery: %.2fV (%d%%)\n", msg->voltage_mv / 1000.0f, msg->percent);
     }
 }
 

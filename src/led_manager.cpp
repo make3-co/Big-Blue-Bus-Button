@@ -11,46 +11,58 @@ static int8_t neopxl8Pins[8] = {
 // Bit order: byte[y * (width/8) + x/8], bit (7 - x%8)
 
 // Front Left (16x16, strand 0) — 180 lit pixels
-// Orange rows 2-5 cols 1-15, Blue rows 6-9 cols 1-15, Green rows 10-13 cols 1-15
+// Orange rows 2-5 cols 0-14, Blue rows 6-9 cols 0-14, Green rows 10-13 cols 0-14
 static const uint8_t FRONT_LEFT_MASK[32] = {
-    0x00, 0x00, 0x00, 0x00, 0x7F, 0xFF, 0x7F, 0xFF,
-    0x7F, 0xFF, 0x7F, 0xFF, 0x7F, 0xFF, 0x7F, 0xFF,
-    0x7F, 0xFF, 0x7F, 0xFF, 0x7F, 0xFF, 0x7F, 0xFF,
-    0x7F, 0xFF, 0x7F, 0xFF, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0xFF, 0xFE, 0xFF, 0xFE,
+    0xFF, 0xFE, 0xFF, 0xFE, 0xFF, 0xFE, 0xFF, 0xFE,
+    0xFF, 0xFE, 0xFF, 0xFE, 0xFF, 0xFE, 0xFF, 0xFE,
+    0xFF, 0xFE, 0xFF, 0xFE, 0x00, 0x00, 0x00, 0x00,
 };
 
-// Front Right (16x16, strand 1) — 96 lit pixels
-// Orange col 0 rows 2-5, Blue col 0 rows 6-9, Green col 0 rows 10-13, Yellow cols 1-7 rows 2-13
-static const uint8_t FRONT_RIGHT_MASK[32] = {
-    0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00,
-    0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
-    0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00,
-    0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00,
+// Front Right (8x32 rotated sideways, display: 8 wide × 16 tall, strand 1) — 96 lit pixels
+// Yellow section: all 8 cols × rows 2-13 (physical columns 2-13 of 8x32 panel)
+// 8 pixels wide = 1 byte per row, 16 rows = 16 bytes
+static const uint8_t FRONT_RIGHT_MASK[16] = {
+    0x00,  // row 0: empty
+    0x00,  // row 1: empty
+    0xFF,  // row 2: all 8 cols
+    0xFF,  // row 3
+    0xFF,  // row 4
+    0xFF,  // row 5
+    0xFF,  // row 6
+    0xFF,  // row 7
+    0xFF,  // row 8
+    0xFF,  // row 9
+    0xFF,  // row 10
+    0xFF,  // row 11
+    0xFF,  // row 12
+    0xFF,  // row 13
+    0x00,  // row 14: empty
+    0x00,  // row 15: empty
 };
 
-// Side Left (32x8, strand 2) — 168 lit pixels (cols 0-20 all 8 rows)
-// Width=32 → 4 bytes/row, 8 rows = 32 bytes. Cols 0-20 lit: 0xFF 0xFF 0xF8 0x00
+// Side Left (32x8, strand 2) — mirrored leaf pattern, 77 lit pixels
 static const uint8_t SIDE_LEFT_MASK[32] = {
-    0xFF, 0xFF, 0xF8, 0x00,  // row 0
-    0xFF, 0xFF, 0xF8, 0x00,  // row 1
-    0xFF, 0xFF, 0xF8, 0x00,  // row 2
-    0xFF, 0xFF, 0xF8, 0x00,  // row 3
-    0xFF, 0xFF, 0xF8, 0x00,  // row 4
-    0xFF, 0xFF, 0xF8, 0x00,  // row 5
-    0xFF, 0xFF, 0xF8, 0x00,  // row 6
-    0xFF, 0xFF, 0xF8, 0x00,  // row 7
+    0x00, 0x00, 0x00, 0x00,  // row 0
+    0xEC, 0x8F, 0xF0, 0x00,  // row 1
+    0x6E, 0xB7, 0xF8, 0x00,  // row 2
+    0xFE, 0xF7, 0xE8, 0x00,  // row 3
+    0x7F, 0x7D, 0xC0, 0x00,  // row 4
+    0x7D, 0xA1, 0xC8, 0x00,  // row 5
+    0x00, 0x00, 0x30, 0x00,  // row 6
+    0x00, 0x00, 0x00, 0x00,  // row 7
 };
 
-// Side Right (32x8, strand 3) — 168 lit pixels (cols 0-20 all 8 rows)
+// Side Right (32x8, strand 3) — all 11 leaves, 77 lit pixels
 static const uint8_t SIDE_RIGHT_MASK[32] = {
-    0xFF, 0xFF, 0xF8, 0x00,  // row 0
-    0xFF, 0xFF, 0xF8, 0x00,  // row 1
-    0xFF, 0xFF, 0xF8, 0x00,  // row 2
-    0xFF, 0xFF, 0xF8, 0x00,  // row 3
-    0xFF, 0xFF, 0xF8, 0x00,  // row 4
-    0xFF, 0xFF, 0xF8, 0x00,  // row 5
-    0xFF, 0xFF, 0xF8, 0x00,  // row 6
-    0xFF, 0xFF, 0xF8, 0x00,  // row 7
+    0x00, 0x00, 0x00, 0x00,  // row 0
+    0x7F, 0x89, 0xB8, 0x00,  // row 1
+    0xFF, 0x6B, 0xB0, 0x00,  // row 2
+    0xBF, 0x7B, 0xF8, 0x00,  // row 3
+    0x1D, 0xF7, 0xF0, 0x00,  // row 4
+    0x9C, 0x2D, 0xF0, 0x00,  // row 5
+    0x60, 0x00, 0x00, 0x00,  // row 6
+    0x00, 0x00, 0x00, 0x00,  // row 7
 };
 
 bool LedManager::begin() {
@@ -95,11 +107,15 @@ uint16_t LedManager::strandOffset(PanelId panel) const {
 }
 
 uint8_t LedManager::panelHeight(PanelId panel) const {
-    return (panel <= PANEL_FRONT_RIGHT) ? FRONT_PANEL_HEIGHT : SIDE_PANEL_HEIGHT;
+    if (panel == PANEL_FRONT_LEFT)  return FRONT_LEFT_HEIGHT;
+    if (panel == PANEL_FRONT_RIGHT) return FRONT_RIGHT_HEIGHT;
+    return SIDE_PANEL_HEIGHT;
 }
 
 uint8_t LedManager::panelWidth(PanelId panel) const {
-    return (panel <= PANEL_FRONT_RIGHT) ? FRONT_PANEL_WIDTH : SIDE_PANEL_WIDTH;
+    if (panel == PANEL_FRONT_LEFT)  return FRONT_LEFT_WIDTH;
+    if (panel == PANEL_FRONT_RIGHT) return FRONT_RIGHT_WIDTH;
+    return SIDE_PANEL_WIDTH;
 }
 
 uint8_t LedManager::getPanelWidth(PanelId panel) const {
@@ -113,15 +129,44 @@ uint8_t LedManager::getPanelHeight(PanelId panel) const {
 // Column-major serpentine mapping:
 // Even columns: top-to-bottom (y=0 at start)
 // Odd columns: bottom-to-top (y=height-1 at start)
+//
+// Front right panel is an 8x32 panel rotated 90°:
+//   display x (0-7) = physical row, display y (0-15) = physical column
+//   pixel = offset + y * 8 + (y%2==0 ? x : 7-x)
 uint16_t LedManager::panelXYtoPixel(PanelId panel, uint8_t x, uint8_t y) const {
     uint16_t offset = strandOffset(panel);
-    uint8_t h = panelHeight(panel);
-    uint16_t colBase = offset + (uint16_t)x * h;
 
-    if (x % 2 == 0) {
-        return colBase + y;           // Even column: top to bottom
+    if (panel == PANEL_FRONT_RIGHT) {
+        // Rotated 8x32: display_y = physical column, display_x = physical row
+        uint16_t colBase = offset + (uint16_t)y * FRONT_RIGHT_PHYS_COL_HEIGHT;
+        if (y % 2 == 0) {
+            return colBase + x;
+        } else {
+            return colBase + (FRONT_RIGHT_PHYS_COL_HEIGHT - 1 - x);
+        }
+    }
+
+    // Side panels need coordinate corrections for physical mounting
+    uint8_t h = panelHeight(panel);
+    uint8_t mx = x;
+    uint8_t my = y;
+    if (panel == PANEL_SIDE_LEFT) {
+        // Left side: flip y only (mirror rows)
+        my = h - 1 - y;
+    } else if (panel == PANEL_SIDE_RIGHT) {
+        // Right side: flip both x and y (180° rotation)
+        if (x >= SIDE_PANEL_COLS) return strandOffset(panel);
+        mx = SIDE_PANEL_COLS - 1 - x;
+        my = h - 1 - y;
+    }
+
+    // Standard column-major serpentine
+    uint16_t colBase = offset + (uint16_t)mx * h;
+
+    if (mx % 2 == 0) {
+        return colBase + my;           // Even column: top to bottom
     } else {
-        return colBase + (h - 1 - y); // Odd column: bottom to top
+        return colBase + (h - 1 - my); // Odd column: bottom to top
     }
 }
 

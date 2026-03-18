@@ -1,57 +1,91 @@
 #include "battery_indicator.h"
 #include "led_manager.h"
+#include "espnow_sender.h"
+#include <Wire.h>
 #include <Adafruit_LC709203F.h>
+#include <Adafruit_MAX1704X.h>
 
 BatteryIndicator batteryIndicator;
+
+void BatteryIndicator::tryInitGauge() {
+    if (gaugeType != GaugeType::NONE) return;  // Already found
+
+    Wire.begin(3, 4);  // SDA=GPIO3, SCL=GPIO4 on Feather ESP32-S3
+
+    // Try MAX17048 first (newer Feather boards), then LC709203F
+    maxGauge = new Adafruit_MAX17048();
+    if (maxGauge->begin(&Wire)) {
+        gaugeType = GaugeType::MAX17048;
+        Serial.println("MAX17048 fuel gauge initialized");
+        return;
+    }
+    delete maxGauge;
+    maxGauge = nullptr;
+
+    lcGauge = new Adafruit_LC709203F();
+    if (lcGauge->begin()) {
+        gaugeType = GaugeType::LC709203F;
+        lcGauge->setPackSize(LC709203F_APA_3000MAH);
+        lcGauge->setThermistorB(3950);
+        lcGauge->setAlarmVoltage(3.2f);
+        Serial.println("LC709203F fuel gauge initialized");
+        return;
+    }
+    delete lcGauge;
+    lcGauge = nullptr;
+    Serial.println("Fuel gauge not found yet (needs battery voltage)");
+}
 
 void BatteryIndicator::begin() {
     // VBUS charger detection pin
     pinMode(VBUS_DETECT_PIN, INPUT);
 
-    fuelGauge = new Adafruit_LC709203F();
-
-    if (fuelGauge->begin()) {
-        fuelGauge->setPackSize(LC709203F_APA_3000MAH);  // Closest available APA for our cells
-        fuelGauge->setAlarmVoltage(3.2f);
-        fuelGaugeOk = true;
-        Serial.println("LC709203F fuel gauge found");
-    } else {
-        delete fuelGauge;
-        fuelGauge = nullptr;
-        fuelGaugeOk = false;
-        Serial.println("LC709203F not found — falling back to ADC");
-        analogReadResolution(12);
-    }
+    tryInitGauge();
 
     // Initial reading
     charging = digitalRead(VBUS_DETECT_PIN) == HIGH;
-    if (fuelGaugeOk) {
-        lastVoltage = fuelGauge->cellVoltage();
-        lastPercent = (uint8_t)constrain(fuelGauge->cellPercent(), 0.0f, 100.0f);
-    } else {
-        lastVoltage = readVoltageADC();
-        lastPercent = percentFromVoltage(lastVoltage);
-    }
+    readGauge();
     render(lastPercent);
+
+    const char* gaugeName = gaugeType == GaugeType::MAX17048 ? "MAX17048" :
+                            gaugeType == GaugeType::LC709203F ? "LC709203F" : "NONE";
     Serial.printf("Battery: %.2fV (%d%%) %s [%s]\n", lastVoltage, lastPercent,
-                  charging ? "CHARGING" : "", fuelGaugeOk ? "LC709203F" : "ADC");
+                  charging ? "CHARGING" : "", gaugeName);
 }
 
 void BatteryIndicator::update() {
-    if (millis() - lastReadTime < BATTERY_READ_INTERVAL_MS) return;
+    // Check more frequently when voltage is low (every 5s below 3.2V, else 30s)
+    uint32_t interval = (avgVoltage < 3.2f && avgVoltage > 0.5f) ? 5000 : BATTERY_READ_INTERVAL_MS;
+    if (millis() - lastReadTime < interval) return;
     lastReadTime = millis();
 
     charging = digitalRead(VBUS_DETECT_PIN) == HIGH;
-    if (fuelGaugeOk) {
-        lastVoltage = fuelGauge->cellVoltage();
-        lastPercent = (uint8_t)constrain(fuelGauge->cellPercent(), 0.0f, 100.0f);
-    } else {
-        lastVoltage = readVoltageADC();
-        lastPercent = percentFromVoltage(lastVoltage);
+
+    // Retry gauge init if not found yet (needs battery voltage on BAT pin)
+    if (gaugeType == GaugeType::NONE) {
+        tryInitGauge();
+    }
+
+    readGauge();
+
+    // Rolling average voltage (smooths out load sag spikes)
+    voltageSamples[sampleIndex] = lastVoltage;
+    sampleIndex = (sampleIndex + 1) % AVG_SAMPLES;
+    float sum = 0;
+    for (uint8_t i = 0; i < AVG_SAMPLES; i++) sum += voltageSamples[i];
+    avgVoltage = sum / (float)AVG_SAMPLES;
+
+    // Only trigger low battery shutdown during low brightness window (less load sag)
+    if (avgVoltage <= LOW_BATTERY_CUTOFF_V && !charging && lowBrightnessWindow) {
+        lowBattery = true;
     }
     render(lastPercent);
-    Serial.printf("Battery: %.2fV (%d%%) %s [%s]\n", lastVoltage, lastPercent,
-                  charging ? "CHARGING" : "", fuelGaugeOk ? "LC709203F" : "ADC");
+
+    const char* gaugeName = gaugeType == GaugeType::MAX17048 ? "MAX17048" :
+                            gaugeType == GaugeType::LC709203F ? "LC709203F" : "NO GAUGE";
+    Serial.printf("Battery: %.2fV (avg:%.2fV) (%d%%) %s%s [%s]\n", lastVoltage, avgVoltage, lastPercent,
+                  charging ? "CHARGING " : "", lowBattery ? "LOW!" : "", gaugeName);
+    espNowSender.sendBatteryStatus(avgVoltage, hasFuelGauge() ? lastPercent : 255);
 }
 
 float BatteryIndicator::getVoltage() {
@@ -62,58 +96,38 @@ uint8_t BatteryIndicator::getPercent() {
     return lastPercent;
 }
 
-float BatteryIndicator::readVoltageADC() {
-    // Feather ESP32-S3 has a voltage divider on A13 (GPIO 35)
-    // ADC reads 0-4095 for 0-3.3V, actual battery voltage is 2x the reading
-    uint32_t raw = 0;
-    for (int i = 0; i < 16; i++) {
-        raw += analogRead(BATTERY_ADC_PIN);
+void BatteryIndicator::readGauge() {
+    if (gaugeType == GaugeType::MAX17048 && maxGauge) {
+        lastVoltage = maxGauge->cellVoltage();
+        lastPercent = (uint8_t)constrain(maxGauge->cellPercent(), 0.0f, 100.0f);
+    } else if (gaugeType == GaugeType::LC709203F && lcGauge) {
+        lastVoltage = lcGauge->cellVoltage();
+        lastPercent = (uint8_t)constrain(lcGauge->cellPercent(), 0.0f, 100.0f);
     }
-    raw /= 16;
-
-    float adcVoltage = (float)raw / 4095.0f * 3.3f;
-    return adcVoltage * 2.0f;
-}
-
-uint8_t BatteryIndicator::percentFromVoltage(float voltage) {
-    // LiPo discharge curve (3.0V empty, 4.2V full)
-    if (voltage >= 4.15f) return 100;
-    if (voltage >= 4.00f) return 85;
-    if (voltage >= 3.85f) return 70;
-    if (voltage >= 3.75f) return 55;
-    if (voltage >= 3.65f) return 40;
-    if (voltage >= 3.55f) return 25;
-    if (voltage >= 3.45f) return 15;
-    if (voltage >= 3.35f) return 8;
-    if (voltage >= 3.20f) return 3;
-    return 0;
 }
 
 void BatteryIndicator::render(uint8_t percent) {
-    uint16_t baseIdx;
-    switch (BATTERY_INDICATOR_PANEL) {
-        case PANEL_SIDE_LEFT:  baseIdx = STRAND_OFFSET_SIDE_LEFT + BATTERY_INDICATOR_OFFSET; break;
-        case PANEL_SIDE_RIGHT: baseIdx = STRAND_OFFSET_SIDE_RIGHT + BATTERY_INDICATOR_OFFSET; break;
-        default:               baseIdx = STRAND_OFFSET_SIDE_LEFT + BATTERY_INDICATOR_OFFSET; break;
-    }
+    uint16_t baseIdx = STRAND_OFFSET_FRONT_LEFT + BATTERY_INDICATOR_OFFSET;
 
     Adafruit_NeoPXL8* strip = ledManager.getStrip();
 
+    // Voltage-based thresholds using rolling average
     uint8_t lit = 0;
     uint32_t color = 0;
+    float v = avgVoltage;
 
-    if (percent > 75) {
+    if (v >= 3.75f) {
         lit = 4;
-        color = Adafruit_NeoPixel::Color(0, 40, 0);      // Green (dim)
-    } else if (percent > 50) {
+        color = Adafruit_NeoPixel::Color(0, 40, 0);      // Green
+    } else if (v >= 3.55f) {
         lit = 3;
         color = Adafruit_NeoPixel::Color(0, 40, 0);
-    } else if (percent > 25) {
+    } else if (v >= 3.35f) {
         lit = 2;
         color = Adafruit_NeoPixel::Color(0, 40, 0);
-    } else if (percent > 15) {
+    } else if (v >= 3.1f) {
         lit = 1;
-        color = Adafruit_NeoPixel::Color(40, 30, 0);     // Yellow (dim)
+        color = Adafruit_NeoPixel::Color(40, 30, 0);     // Yellow
     } else {
         lit = 1;
         bool blink = (millis() / 500) % 2;

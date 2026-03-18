@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <math.h>
 #include <WiFi.h>
+#include <Wire.h>
+#include <Adafruit_MAX1704X.h>
 #include "config.h"
 #include "led_manager.h"
 #include "animation.h"
@@ -254,8 +256,12 @@ void setup() {
         if (pin >= 0) { pinMode(pin, OUTPUT); digitalWrite(pin, LOW); }
     }
 
-    // Initialize LEDs ASAP — clear before anything else to kill boot noise
     Serial.begin(115200);
+
+    // Wait for TPS61088 boost converters to stabilize before LED init
+    delay(500);
+
+    // Initialize LEDs — clear before anything else to kill boot noise
     if (!ledManager.begin()) {
         Serial.println("FATAL: LED init failed, halting");
         while (true) { yield(); }
@@ -279,6 +285,10 @@ void setup() {
     // Re-clear LEDs after all module init (audio/WiFi DMA may have corrupted output)
     ledManager.clear();
     ledManager.show();
+    delay(100);
+    // Second clear+show in case LEDs missed the first (power sequencing)
+    ledManager.clear();
+    ledManager.show();
     delay(5);
 
     changeState(DeviceState::STARTUP);
@@ -294,6 +304,14 @@ void loop() {
     if (!macPrinted && millis() > 5000) {
         macPrinted = true;
         Serial.printf("Sender MAC: %s\n", WiFi.macAddress().c_str());
+        // Debug: I2C scan for fuel gauge
+        Wire.begin(3, 4);  // SDA=GPIO3, SCL=GPIO4
+        for (uint8_t addr = 1; addr < 127; addr++) {
+            Wire.beginTransmission(addr);
+            if (Wire.endTransmission() == 0) {
+                Serial.printf("I2C device found at 0x%02X\n", addr);
+            }
+        }
     }
 
     button.update();
@@ -302,6 +320,26 @@ void loop() {
     audioManager.update();  // Extra audio pump after LED show() blocking call
     powerManager.update();
     batteryIndicator.update();
+
+    // Low battery shutdown — kill everything and deep sleep
+    if (batteryIndicator.isLowBattery()) {
+        Serial.printf("LOW BATTERY (%.2fV) — shutting down\n", batteryIndicator.getVoltage());
+        audioManager.ampOff();
+        // Force all LED data pins LOW to kill any WS2812B output
+        ledManager.clear();
+        ledManager.show();
+        delay(50);
+        ledManager.setBrightness(0);
+        ledManager.show();
+        delay(50);
+        // Kill LED data pins manually
+        static constexpr int8_t shutdownPins[] = {NEOPXL8_PIN_0, NEOPXL8_PIN_1, NEOPXL8_PIN_2, NEOPXL8_PIN_3};
+        for (auto pin : shutdownPins) {
+            if (pin >= 0) { pinMode(pin, OUTPUT); digitalWrite(pin, LOW); }
+        }
+        delay(100);
+        esp_deep_sleep_start();
+    }
 
     switch (state) {
         case DeviceState::STARTUP:

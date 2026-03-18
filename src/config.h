@@ -46,19 +46,25 @@ enum PanelId : uint8_t {
     PANEL_COUNT       = 4
 };
 
-// Front panels: 16x16
-static constexpr uint8_t FRONT_PANEL_WIDTH  = 16;
-static constexpr uint8_t FRONT_PANEL_HEIGHT = 16;
-static constexpr uint16_t FRONT_PANEL_PIXELS = FRONT_PANEL_WIDTH * FRONT_PANEL_HEIGHT;  // 256
+// Front left panel: 16x16
+static constexpr uint8_t FRONT_LEFT_WIDTH  = 16;
+static constexpr uint8_t FRONT_LEFT_HEIGHT = 16;
+static constexpr uint16_t FRONT_LEFT_PIXELS = FRONT_LEFT_WIDTH * FRONT_LEFT_HEIGHT;  // 256
 
-// Side panels: 32 columns × 8 rows
-static constexpr uint8_t SIDE_PANEL_WIDTH  = 32;
+// Front right panel: 8x32 rotated sideways (8 display cols × 16 display rows)
+static constexpr uint8_t FRONT_RIGHT_WIDTH  = 8;
+static constexpr uint8_t FRONT_RIGHT_HEIGHT = 16;
+static constexpr uint8_t FRONT_RIGHT_PHYS_COL_HEIGHT = 8;  // Physical column height of 8x32 panel
+
+// Side panels: 8x32 physical, cut to 21 usable columns × 8 rows
+static constexpr uint8_t SIDE_PANEL_WIDTH  = 32;   // Physical width (for pixel addressing)
+static constexpr uint8_t SIDE_PANEL_COLS   = 21;   // Usable columns after cutting (0-20)
 static constexpr uint8_t SIDE_PANEL_HEIGHT = 8;
 static constexpr uint16_t SIDE_PANEL_PIXELS = SIDE_PANEL_WIDTH * SIDE_PANEL_HEIGHT;  // 256
 
 // NeoPXL8 total buffer: 8 strands × 260 pixels each (256 panel + 4 battery indicator)
 static constexpr uint8_t  NEOPXL8_STRANDS     = 8;
-static constexpr uint16_t PIXELS_PER_STRAND   = 260;
+static constexpr uint16_t PIXELS_PER_STRAND   = 260;  // 256 panel + 4 battery indicator
 static constexpr uint16_t TOTAL_PIXEL_BUFFER  = NEOPXL8_STRANDS * PIXELS_PER_STRAND;  // 2080
 
 // Strand offsets in the NeoPXL8 pixel buffer
@@ -72,8 +78,8 @@ static constexpr uint16_t STRAND_OFFSET_SIDE_RIGHT  = 3 * PIXELS_PER_STRAND;  //
 // =============================================================================
 
 static constexpr uint8_t BRIGHTNESS_IDLE_MIN  = 20;   // Pulse trough
-static constexpr uint8_t BRIGHTNESS_IDLE_MAX  = 255;  // Pulse peak (100% with checkerboard)
-static constexpr uint8_t BRIGHTNESS_ACTIVE    = 255;  // During button press animation (100% with checkerboard)
+static constexpr uint8_t BRIGHTNESS_IDLE_MAX  = 255;  // Full — undulation controls actual brightness
+static constexpr uint8_t BRIGHTNESS_ACTIVE    = 255;  // Full for button press
 static constexpr uint8_t BRIGHTNESS_MAX       = 255;  // Absolute max
 
 // =============================================================================
@@ -88,7 +94,7 @@ static constexpr uint8_t IDLE_COLOR_B = 80;
 // Startup
 // =============================================================================
 
-static constexpr uint32_t STARTUP_RAMP_DURATION_MS = 1500;
+static constexpr uint32_t STARTUP_RAMP_DURATION_MS = 3000;
 
 // =============================================================================
 // Battery Indicator
@@ -96,18 +102,18 @@ static constexpr uint32_t STARTUP_RAMP_DURATION_MS = 1500;
 
 static constexpr PanelId  BATTERY_INDICATOR_PANEL = PANEL_SIDE_LEFT;  // Change to PANEL_SIDE_RIGHT if needed
 static constexpr uint16_t BATTERY_INDICATOR_OFFSET = 256;             // First LED after 256 panel pixels on strand
-static constexpr uint8_t  BATTERY_INDICATOR_COUNT  = 4;
+static constexpr uint8_t  BATTERY_INDICATOR_COUNT  = 4;               // Physical SK6812RGBW LEDs
 static constexpr uint32_t BATTERY_READ_INTERVAL_MS = 30000;           // 30 seconds
-static constexpr uint8_t  BATTERY_ADC_PIN = 8;                        // A5, Feather built-in voltage divider (fallback if no LC709203F)
+static constexpr float    LOW_BATTERY_CUTOFF_V     = 2.6f;           // Kill LEDs + deep sleep below this voltage (under load)
 
-// LC709203F Fuel Gauge (I2C via STEMMA QT)
+// LC709203F Fuel Gauge (built into Feather ESP32-S3, on-board I2C)
 static constexpr uint16_t FUEL_GAUGE_BATTERY_MAH = 4200;             // APA pack size (mAh) — closest match for LC709203F lookup table
 
 // =============================================================================
 // Timing
 // =============================================================================
 
-static constexpr uint32_t ANIMATION_DURATION_MS = 1000;   // Button press animation (bottom-to-top fill)
+static constexpr uint32_t ANIMATION_DURATION_MS = 1650;   // Match press.wav duration (~1.65s)
 static constexpr uint32_t COOLDOWN_DURATION_MS  = 200;    // Ignore button after animation
 static constexpr uint32_t BUTTON_DEBOUNCE_MS    = 50;     // Debounce time
 
@@ -126,7 +132,7 @@ static constexpr uint8_t RECEIVER_MAC[6] = {0xDC, 0x54, 0x75, 0xDD, 0x45, 0x74};
 // OTA / WiFi
 // =============================================================================
 
-static constexpr const char* FIRMWARE_VERSION    = "1.0.9";
+static constexpr const char* FIRMWARE_VERSION    = "1.2.0";
 static constexpr const char* FIRMWARE_UPDATE_URL = "https://ota-server.make3.workers.dev/big-blue-bus-button/manifest.json";
 static constexpr const char* OTA_API_KEY         = "eaae7d5da47277fbebd6e78c0f3c5093eede9b59277dd1ba27623cba1a718059";
 static constexpr const char* AP_SSID             = "BigBlueButton-Setup";

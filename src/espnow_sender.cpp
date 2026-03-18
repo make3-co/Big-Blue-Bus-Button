@@ -52,12 +52,18 @@ void EspNowSender::sendButtonPress() {
     sendMessage(CommandType::BUTTON_PRESS);
 }
 
-void EspNowSender::sendMessage(CommandType cmd) {
+void EspNowSender::sendBatteryStatus(float voltage, uint8_t percent) {
+    sendMessage(CommandType::BATTERY_STATUS, (uint16_t)(voltage * 1000.0f), percent);
+}
+
+void EspNowSender::sendMessage(CommandType cmd, uint16_t voltage_mv, uint8_t percent) {
     EspNowMessage msg;
     msg.magic[0]    = ESPNOW_MAGIC_0;
     msg.magic[1]    = ESPNOW_MAGIC_1;
     msg.command     = cmd;
     msg.sequenceNum = sequenceNum++;
+    msg.voltage_mv  = voltage_mv;
+    msg.percent     = percent;
 
     // Send redundant packets for reliability
     for (uint8_t i = 0; i < ESPNOW_REDUNDANT_SENDS; i++) {

@@ -11,11 +11,12 @@
 class EspNowSender {
 public:
     bool begin();
-    void sendButtonPress();  // Sends redundant packets with incrementing sequence number
+    void sendButtonPress();
+    void sendBatteryStatus(float voltage, uint8_t percent);
 
 private:
     uint16_t sequenceNum = 0;
-    void sendMessage(CommandType cmd);
+    void sendMessage(CommandType cmd, uint16_t voltage_mv = 0, uint8_t percent = 0);
 };
 
 extern EspNowSender espNowSender;
